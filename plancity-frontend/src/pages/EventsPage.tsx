@@ -1,15 +1,22 @@
 import { useEffect, useState } from "react";
 
 import { EventCard } from "../components/EventCard/EventCard";
-import { eventService } from "../services/eventService";
+import { useAuth } from "../context/useAuth";
 import { categoryService } from "../services/categoryService";
+import { eventService } from "../services/eventService";
+import { favoriteService } from "../services/favoriteService";
 
-import type { Event } from "../types/event";
 import type { Category } from "../types/category";
+import type { Event } from "../types/event";
 
 export function EventsPage() {
+  const { user } = useAuth();
+
   const [events, setEvents] = useState<Event[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const [search, setSearch] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -30,6 +37,29 @@ export function EventsPage() {
 
     loadCategories();
   }, []);
+
+  // Cargar favoritos cuando existe una sesión
+  useEffect(() => {
+    const loadFavorites = async () => {
+      if (!user) {
+        setFavoriteIds(new Set());
+        return;
+      }
+
+      try {
+        const favorites = await favoriteService.getAll();
+
+        setFavoriteIds(
+          new Set(favorites.map((event) => event.id)),
+        );
+      } catch {
+        // Los eventos deben seguir funcionando aunque falle favoritos.
+        setFavoriteIds(new Set());
+      }
+    };
+
+    loadFavorites();
+  }, [user]);
 
   // Cargar eventos cuando cambian los filtros
   useEffect(() => {
@@ -53,6 +83,23 @@ export function EventsPage() {
 
     loadEvents();
   }, [search, categoryId]);
+
+  const handleFavoriteChange = (
+    eventId: string,
+    isFavorite: boolean,
+  ) => {
+    setFavoriteIds((currentIds) => {
+      const nextIds = new Set(currentIds);
+
+      if (isFavorite) {
+        nextIds.add(eventId);
+      } else {
+        nextIds.delete(eventId);
+      }
+
+      return nextIds;
+    });
+  };
 
   return (
     <main>
@@ -105,6 +152,10 @@ export function EventsPage() {
             <EventCard
               key={event.id}
               event={event}
+              isFavorite={favoriteIds.has(event.id)}
+              onFavoriteChange={(isFavorite) =>
+                handleFavoriteChange(event.id, isFavorite)
+              }
             />
           ))}
         </section>

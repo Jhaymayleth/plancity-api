@@ -1,5 +1,12 @@
 import { request } from "../api/request";
-import type { AuthResponse, LoginData, RegisterData } from "../types/auth";
+
+import type {
+  AuthResponse,
+  LoginData,
+  RegisterData,
+} from "../types/auth";
+
+import type { User } from "../types/user";
 
 export const authService = {
   login: (data: LoginData) =>
@@ -10,4 +17,7 @@ export const authService = {
 
   logout: () =>
     request<{ message: string }>("POST", "/auth/logout"),
+
+  getMe: () =>
+    request<User>("GET", "/users/me"),
 };

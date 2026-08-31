@@ -1,879 +1,1312 @@
-# PlanCity Frontend
+# PlanCity — Frontend
 
-Frontend de la aplicación **PlanCity**, desarrollado como parte de la prueba de desempeño del Módulo 5 de TypeScript.
+## Documento de decisiones técnicas y de desarrollo
 
-El proyecto consume una API REST desarrollada previamente con NestJS y PostgreSQL, encargada de gestionar autenticación, usuarios, categorías, eventos y favoritos.
-
----
-
-## 1. Objetivo del proyecto
-
-Construir una interfaz web utilizando:
-
-* React
-* TypeScript
-* Vite
-
-que permita consumir la API de PlanCity y respetar las reglas de negocio definidas por el backend, especialmente las relacionadas con:
-
-* Autenticación mediante JWT.
-* Roles `user` y `admin`.
-* Protección de rutas.
-* Gestión de eventos.
-* Gestión de categorías.
-* Favoritos.
-* Manejo de errores.
-* Tipado estricto con TypeScript.
-
-El desarrollo se realizó priorizando **funcionalidad, separación de responsabilidades y mantenibilidad** sobre la complejidad visual.
+> **Proyecto:** PlanCity
+> **Tipo:** Aplicación web para descubrimiento y gestión de eventos
+> **Frontend:** React + TypeScript + Vite
+> **Estilos:** Tailwind CSS
+> **Gestión de estado:** React / Zustand
+> **Consumo de API:** Axios
+> **Testing:** Vitest + React Testing Library
+> **Enrutamiento:** React Router DOM
+> **Gestión de datos:** TanStack Query
+> **Validación:** Zod
+> **Formulario:** React Hook Form
 
 ---
 
-# Fase 0 — Preparación y decisiones iniciales
+# 1. Introducción
 
-## 0.1 Análisis del backend
+PlanCity es una aplicación web orientada al descubrimiento de eventos y actividades, permitiendo a los usuarios consultar eventos, visualizar información detallada, navegar entre diferentes secciones y guardar eventos como favoritos.
 
-Antes de comenzar el desarrollo del frontend se verificó que la API estuviera funcionando correctamente mediante Swagger.
+El desarrollo del frontend se realizó utilizando una arquitectura basada en componentes y tecnologías modernas del ecosistema React.
 
-Base URL:
+El objetivo principal de las decisiones técnicas fue construir una aplicación:
 
-```text
-http://localhost:3000
-```
+* Escalable.
+* Mantenible.
+* Tipada.
+* Modular.
+* Reutilizable.
+* Fácil de probar.
+* Preparada para integrarse con un backend.
+* Coherente visualmente.
+* Adecuada para continuar agregando funcionalidades.
 
-Documentación:
-
-```text
-http://localhost:3000/api/docs
-```
-
-Swagger permitió identificar:
-
-* Endpoints disponibles.
-* Métodos HTTP.
-* Datos requeridos en cada petición.
-* Estructura de las respuestas.
-* Códigos HTTP utilizados por el backend.
-* Requisitos de autenticación.
-* Restricciones de rol.
-
-### Decisión
-
-Se decidió utilizar Swagger como **contrato de referencia entre frontend y backend**.
-
-Esto evita desarrollar modelos o servicios basados en suposiciones y permite que el frontend respete las reglas que realmente implementa la API.
+Este documento registra las principales decisiones tomadas durante el desarrollo y explica las razones técnicas detrás de ellas.
 
 ---
 
-## 0.2 Validación de autenticación
+# 2. Objetivo del documento
 
-Se probaron los endpoints:
+Este documento tiene como finalidad explicar el proceso de toma de decisiones utilizado durante el desarrollo del frontend.
 
-```text
-POST /auth/register
-POST /auth/login
-POST /auth/logout
-GET  /users/me
-```
+No solamente se documenta **qué tecnología fue utilizada**, sino también:
 
-Se comprobó que el login devuelve:
+* Por qué fue seleccionada.
+* Qué problema resuelve.
+* Qué alternativas existían.
+* Por qué se descartaron determinadas alternativas.
+* Cómo afecta la decisión a la arquitectura.
+* Qué beneficios proporciona al proyecto.
+* Qué consideraciones deben tenerse en cuenta para futuras etapas.
 
-```json
-{
-  "accessToken": "...",
-  "user": {
-    "id": "...",
-    "name": "...",
-    "email": "...",
-    "role": "user"
-  }
-}
-```
-
-También se comprobó que los endpoints protegidos responden `401 Unauthorized` cuando no se proporciona un JWT.
-
-### Decisión
-
-El frontend tratará el `accessToken` como el mecanismo principal de autenticación y lo enviará mediante:
-
-```http
-Authorization: Bearer <token>
-```
+Esto permite demostrar que las decisiones del proyecto no fueron arbitrarias, sino resultado de criterios técnicos y funcionales.
 
 ---
 
-## 0.3 Validación de roles
+# 3. Principios utilizados para tomar decisiones
 
-Swagger permitió confirmar que determinadas operaciones requieren específicamente el rol `admin`.
+Durante el desarrollo se utilizaron los siguientes criterios.
+
+## 3.1 Mantenibilidad
+
+Se priorizaron soluciones que permitan modificar y ampliar el proyecto sin tener que realizar cambios importantes en múltiples partes de la aplicación.
+
+---
+
+## 3.2 Reutilización
+
+Cuando una funcionalidad o elemento visual podía utilizarse en diferentes páginas, se optó por convertirlo en un componente reutilizable.
 
 Por ejemplo:
 
 ```text
-POST   /categories    → admin
-PATCH  /categories/:id → admin
-DELETE /categories/:id → admin
-
-POST   /events        → admin
-PATCH  /events/:id    → admin
-DELETE /events/:id    → admin
+EventCard
 ```
 
-Mientras que:
-
-```text
-GET /events
-GET /categories
-GET /events/:id
-GET /categories/:id
-```
-
-son operaciones públicas.
-
-### Decisión
-
-El frontend tendrá que implementar dos niveles de protección:
-
-1. **Protección de interfaz:** ocultar acciones administrativas para usuarios normales.
-2. **Protección de rutas:** impedir que un usuario `user` acceda directamente mediante una URL.
-
-La segunda es especialmente importante porque ocultar botones por sí solo no constituye control de acceso.
+puede utilizarse para mostrar eventos en diferentes secciones.
 
 ---
 
-# 0.4 Validación de modelos
+## 3.3 Tipado seguro
 
-Se utilizaron las respuestas reales del backend para definir posteriormente los tipos de TypeScript.
-
-Por ejemplo, un evento devuelve información como:
-
-```text
-id
-name
-description
-date
-location
-price
-capacity
-category
-categoryId
-images
-createdAt
-updatedAt
-```
-
-Además, se identificó una diferencia importante entre los datos enviados y los datos recibidos.
-
-Para crear un evento el backend recibe:
-
-```text
-images: string[]
-```
-
-mientras que al devolver un evento proporciona objetos de imagen:
-
-```text
-images: EventImage[]
-```
-
-### Decisión
-
-No se utilizará un único tipo para representar ambas situaciones.
-
-Se diferenciarán:
-
-* Modelos de respuesta.
-* Datos utilizados para crear o actualizar recursos.
-
-Esto permite que TypeScript represente correctamente el contrato de la API.
+Se decidió utilizar TypeScript para reducir errores relacionados con tipos de datos y mejorar la experiencia de desarrollo.
 
 ---
 
-# 0.5 Creación del proyecto
+## 3.4 Separación de responsabilidades
 
-El frontend fue creado utilizando Vite con React y TypeScript.
+Se evitó concentrar toda la lógica dentro de las páginas.
 
-### Decisión: React + TypeScript + Vite
-
-Esta combinación fue seleccionada porque corresponde directamente al stack solicitado por la prueba.
-
-**React** permite construir la interfaz mediante componentes reutilizables.
-
-**TypeScript** permite detectar errores de tipos durante el desarrollo y representar de forma explícita los contratos de la API.
-
-**Vite** proporciona una configuración sencilla y un servidor de desarrollo rápido, evitando invertir tiempo innecesario en configuración durante una prueba con tiempo limitado.
-
----
-
-# 0.6 Variables de entorno
-
-Se configuró:
-
-```env
-VITE_API_URL=http://localhost:3000
-```
-
-La URL de la API no se escribió directamente dentro de los servicios.
-
-### Decisión
-
-Utilizar variables de entorno permite separar la configuración del código fuente.
-
-Por ejemplo, posteriormente podría cambiarse:
+La aplicación separa responsabilidades entre:
 
 ```text
-http://localhost:3000
+Pages
+Components
+Services
+API
+Hooks
+Types
+Routes
 ```
 
-por otra URL sin modificar los servicios del frontend.
+---
 
-El archivo `.env` se encuentra excluido mediante `.gitignore`, mientras que `.env.example` documenta las variables necesarias para ejecutar el proyecto.
+## 3.5 Testabilidad
+
+Las funcionalidades importantes deben poder comprobarse mediante pruebas automatizadas.
+
+Por esta razón se incorporó una estrategia de testing desde el desarrollo de los componentes.
 
 ---
 
-# 0.7 Git
+## 3.6 Escalabilidad
 
-El frontend se integró al repositorio correspondiente al proyecto de la prueba.
-
-Se mantuvo el seguimiento mediante Git desde el inicio para permitir:
-
-* Registrar avances.
-* Identificar cambios.
-* Recuperar versiones anteriores.
-* Mantener un historial claro de decisiones y funcionalidades.
-
-El primer commit del frontend corresponde a la inicialización del proyecto.
+Las decisiones actuales buscan que el proyecto pueda crecer sin necesidad de reconstruir completamente la arquitectura.
 
 ---
 
-# Fase 1 — Capa de comunicación con la API
+# 4. Elección de React
 
-El objetivo de esta fase fue construir una capa independiente entre los componentes de React y la API.
+## Decisión
 
-La estructura implementada es:
+Se seleccionó **React** como biblioteca principal para construir la interfaz.
+
+## Motivo
+
+React permite construir interfaces utilizando componentes independientes y reutilizables.
+
+Esto resulta adecuado para PlanCity porque existen elementos que se repiten en diferentes partes de la aplicación.
+
+Ejemplos:
+
+* Navbar.
+* EventCard.
+* Botones.
+* Formularios.
+* Estados de carga.
+* Mensajes de error.
+* Elementos de navegación.
+
+## Beneficio
+
+La interfaz puede dividirse en piezas pequeñas y reutilizables.
+
+En lugar de construir una página monolítica:
+
+```text
+HomePage
+```
+
+se puede estructurar como:
+
+```text
+HomePage
+ ├── Navbar
+ ├── Hero
+ ├── EventSection
+ │    └── EventCard
+ └── Footer
+```
+
+Esto facilita el mantenimiento.
+
+---
+
+# 5. Elección de TypeScript
+
+## Decisión
+
+Se decidió utilizar TypeScript en lugar de JavaScript puro.
+
+## Motivo
+
+La aplicación trabaja con entidades estructuradas como:
+
+```text
+Event
+User
+Favorite
+API Response
+```
+
+TypeScript permite definir contratos para estas estructuras.
+
+Por ejemplo:
+
+```ts
+export interface Event {
+  id: string;
+  title: string;
+  description: string;
+  location: string;
+  price: number;
+}
+```
+
+De esta manera, si un componente recibe un evento incorrectamente estructurado, el error puede detectarse durante el desarrollo.
+
+## Beneficios
+
+* Mayor seguridad de tipos.
+* Autocompletado.
+* Detección temprana de errores.
+* Mejor mantenimiento.
+* Refactorización más segura.
+* Mejor documentación implícita del código.
+
+## Alternativa descartada
+
+### JavaScript
+
+Aunque JavaScript habría permitido desarrollar más rápidamente algunas funcionalidades iniciales, no ofrecía el mismo nivel de seguridad de tipos.
+
+Debido a que el proyecto está pensado para crecer, se priorizó TypeScript.
+
+---
+
+# 6. Elección de Vite
+
+## Decisión
+
+Se utilizó Vite como herramienta de construcción y entorno de desarrollo.
+
+## Motivo
+
+Vite proporciona:
+
+* Inicio rápido del servidor.
+* Hot Module Replacement.
+* Configuración sencilla.
+* Integración con React y TypeScript.
+* Build optimizado.
+
+Esto permite reducir tiempos durante el desarrollo.
+
+## Alternativa
+
+Una alternativa habría sido Create React App.
+
+Sin embargo, se decidió utilizar Vite debido a su rendimiento y a que actualmente ofrece una experiencia de desarrollo más moderna.
+
+---
+
+# 7. Tailwind CSS
+
+## Decisión
+
+Se utilizó Tailwind CSS para la construcción de estilos.
+
+## Motivo
+
+La aplicación requiere desarrollar rápidamente una interfaz consistente y responsive.
+
+Tailwind permite aplicar estilos directamente mediante clases utilitarias.
+
+Ejemplo:
+
+```tsx
+<div className="rounded-2xl bg-white p-6 shadow-sm">
+```
+
+Esto permite mantener los estilos cerca de la estructura del componente.
+
+## Beneficios
+
+* Desarrollo rápido.
+* Responsive design.
+* Consistencia.
+* Menor necesidad de CSS repetitivo.
+* Fácil modificación de componentes.
+* Sistema de utilidades predecible.
+
+---
+
+# 8. Decisión sobre la identidad visual
+
+## Decisión
+
+Se decidió evitar una interfaz excesivamente oscura y utilizar una estética moderna con fondos claros y acentos de color.
+
+## Motivo
+
+PlanCity es una plataforma orientada a descubrir eventos.
+
+La interfaz debía transmitir:
+
+* Actividad.
+* Descubrimiento.
+* Modernidad.
+* Facilidad de navegación.
+
+Por esta razón se evitó utilizar una interfaz completamente oscura como la primera propuesta del homepage.
+
+## Criterio
+
+El color principal debe funcionar como elemento de identidad visual y no como decoración aislada.
+
+Por esta razón se buscó mantener la misma identidad visual entre:
+
+* Home.
+* Eventos.
+* Favoritos.
+* Detalle.
+* Navegación.
+* Botones.
+* Estados interactivos.
+
+---
+
+# 9. Componentización
+
+## Decisión
+
+Se decidió dividir la interfaz en componentes reutilizables.
+
+Ejemplo:
+
+```text
+src/
+├── components/
+│   ├── EventCard/
+│   ├── Navbar/
+│   └── ...
+├── pages/
+├── services/
+├── hooks/
+├── types/
+├── api/
+└── routes/
+```
+
+## Motivo
+
+Una página no debería contener toda la lógica visual de la aplicación.
+
+Por ejemplo, `EventCard` encapsula la presentación de un evento.
+
+Esto permite reutilizarlo en:
+
+* Página de eventos.
+* Favoritos.
+* Recomendaciones.
+* Homepage.
+* Resultados de búsqueda.
+
+---
+
+# 10. EventCard
+
+## Decisión
+
+Se creó un componente específico para representar eventos.
+
+## Responsabilidades
+
+El componente se encarga de:
+
+* Mostrar imagen.
+* Mostrar título.
+* Mostrar categoría.
+* Mostrar descripción.
+* Mostrar ubicación.
+* Mostrar precio.
+* Permitir gestionar favoritos.
+* Proporcionar acceso al detalle.
+
+## Beneficio
+
+La representación visual de un evento queda centralizada.
+
+Si posteriormente se cambia el diseño de una tarjeta, el cambio puede realizarse en un solo componente.
+
+---
+
+# 11. React Router DOM
+
+## Decisión
+
+Se utilizó React Router DOM para administrar la navegación.
+
+## Motivo
+
+PlanCity es una SPA y requiere múltiples vistas sin recargar completamente la página.
+
+Ejemplos:
+
+```text
+/
+ /events
+ /events/:id
+ /favorites
+ /login
+```
+
+## Beneficios
+
+* Navegación SPA.
+* Rutas dinámicas.
+* Rutas protegidas.
+* Redirecciones.
+* Integración con componentes React.
+
+---
+
+# 12. Prevención de múltiples Routers
+
+Durante el desarrollo apareció un problema:
+
+```text
+You cannot render a <Router> inside another <Router>
+```
+
+## Causa
+
+Existían dos instancias de Router en la aplicación.
+
+## Decisión
+
+Se centralizó el Router en la configuración principal de rutas.
+
+La aplicación debe tener una única instancia del Router.
+
+## Motivo
+
+React Router no permite anidar routers de forma convencional dentro de la aplicación.
+
+Esta corrección evita conflictos de contexto y navegación.
+
+---
+
+# 13. Arquitectura de API
+
+Se decidió separar las llamadas HTTP de los componentes visuales.
+
+La estructura utilizada es:
 
 ```text
 src/
 ├── api/
 │   ├── client.ts
-│   └── request.ts
-│
-├── hooks/
-│   └── useFetch.ts
+│   ├── error.ts
+│   └── index.ts
 │
 ├── services/
-│   ├── authService.ts
-│   ├── categoryService.ts
-│   ├── eventService.ts
-│   └── favoriteService.ts
-│
-└── types/
-    ├── auth.ts
-    ├── category.ts
-    ├── event.ts
-    └── user.ts
+│   └── ...
 ```
 
-La intención es separar responsabilidades:
+## Motivo
+
+Un componente no debería conocer detalles como:
 
 ```text
-Componentes
-     ↓
-Hooks
-     ↓
-Services
-     ↓
-request<T>
-     ↓
-Axios
-     ↓
-API
+URL
+HTTP method
+headers
+interceptors
+error handling
 ```
+
+Estos aspectos deben gestionarse en una capa de servicios.
 
 ---
 
-# 1.1 Elección de Axios
+# 14. Axios
 
-Se eligió **Axios** para la comunicación HTTP.
+## Decisión
 
-### ¿Por qué Axios?
+Se utilizó Axios para las comunicaciones HTTP.
 
-La prueba permite utilizar `fetch` o Axios. Se eligió Axios principalmente por el uso de **interceptores**.
+## Motivo
 
-La aplicación necesita:
+Axios facilita:
 
-* Adjuntar automáticamente el JWT.
-* Detectar respuestas `401`.
-* Centralizar la configuración de las peticiones.
+* Configuración de una instancia.
+* Interceptors.
+* Headers.
+* Manejo de errores.
+* Variables de entorno.
+* Organización de llamadas API.
 
-Axios permite resolver estas necesidades en un único cliente HTTP.
-
-Esto evita repetir lógica como:
-
-```text
-Authorization: Bearer <token>
-```
-
-en cada servicio.
+Esto permite tener un cliente centralizado.
 
 ---
 
-# 1.2 Cliente HTTP centralizado
+# 15. Variables de entorno
 
-Se creó:
+## Decisión
 
-```text
-src/api/client.ts
+Las URLs y configuraciones externas no deben escribirse directamente dentro de los componentes.
+
+Se utilizan variables de entorno.
+
+Ejemplo conceptual:
+
+```env
+VITE_API_URL=...
 ```
 
-Este archivo contiene una instancia centralizada de Axios.
+## Motivo
 
-Responsabilidades:
-
-* Definir la `baseURL`.
-* Configurar headers.
-* Adjuntar el JWT.
-* Reaccionar ante errores `401`.
-
-### Interceptor de request
-
-Antes de enviar una petición se consulta:
-
-```text
-localStorage
-      ↓
-accessToken
-```
-
-Si existe, se agrega:
-
-```http
-Authorization: Bearer <accessToken>
-```
-
-### Decisión
-
-Centralizar esta lógica evita que cada servicio tenga que implementar manualmente la autenticación.
-
----
-
-# 1.3 Manejo de 401
-
-El interceptor de respuesta detecta:
-
-```text
-401 Unauthorized
-```
-
-Cuando ocurre, se elimina el `accessToken` almacenado localmente.
-
-### ¿Por qué?
-
-Un `401` indica que la sesión ya no puede considerarse válida para realizar la petición.
-
-El error no se oculta:
-
-```text
-Promise.reject(error)
-```
-
-porque la capa superior todavía necesita recibirlo para mostrar feedback al usuario.
-
-### Separación de responsabilidades
-
-Se decidió que `client.ts` no debe encargarse directamente de la navegación.
-
-Su responsabilidad es HTTP:
-
-```text
-Axios → detectar 401 → limpiar token
-```
-
-Mientras que posteriormente el `AuthContext` y el sistema de rutas serán responsables de:
-
-```text
-Sesión → usuario → navegación → acceso
-```
-
-Esto evita acoplar Axios directamente con React Router.
-
----
-
-# 1.4 Función genérica `request<T>`
-
-Se creó:
-
-```text
-src/api/request.ts
-```
-
-La función permite realizar peticiones tipadas utilizando un genérico:
-
-```text
-request<Event[]>
-request<Category[]>
-request<User>
-```
-
-### ¿Por qué utilizar un genérico?
-
-La API devuelve diferentes tipos de información.
-
-En lugar de utilizar `any`, el tipo de respuesta se determina al realizar la petición.
+Esto permite cambiar el backend sin modificar el código fuente.
 
 Por ejemplo:
 
 ```text
-request<Event[]>
-```
-
-indica que la respuesta esperada es un arreglo de eventos.
-
-Esto permite que TypeScript detecte errores y proporcione autocompletado en el resto de la aplicación.
-
-### Relación con el requisito de la prueba
-
-El enunciado solicita explícitamente:
-
-> Un genérico reutilizable (`useFetch<T>` o función `request<T>`).
-
-La implementación cumple este requisito mediante:
-
-```text
-request<T>
+Desarrollo → API de desarrollo
+Pruebas → API de pruebas
+Producción → API de producción
 ```
 
 ---
 
-# 1.5 Services
+# 16. Servicios
 
-Se crearon servicios independientes para cada recurso.
+Se decidió implementar servicios específicos para cada dominio.
 
-## Auth
-
-```text
-authService
-├── login
-├── register
-└── logout
-```
-
-## Categories
-
-```text
-categoryService
-├── getAll
-├── getById
-├── create
-├── update
-└── remove
-```
-
-## Events
-
-```text
-eventService
-├── getAll
-├── getById
-├── create
-├── update
-└── remove
-```
-
-## Favorites
+Ejemplo:
 
 ```text
 favoriteService
-├── getAll
-├── add
-└── remove
+moviesApi
 ```
 
-### Decisión
+Estos servicios centralizan las operaciones relacionadas con una entidad.
 
-Los componentes no realizarán directamente llamadas HTTP.
+## Beneficio
 
-En lugar de:
-
-```text
-Componente → Axios
-```
-
-se utiliza:
-
-```text
-Componente → Service → API
-```
-
-### Ventaja
-
-Si posteriormente cambia un endpoint o la forma de realizar una petición, el cambio se realiza en el servicio correspondiente y no en todos los componentes que utilizan esa funcionalidad.
+La lógica de acceso a datos no queda distribuida por toda la aplicación.
 
 ---
 
-# 1.6 Tipado de usuarios
+# 17. TanStack Query
 
-Se creó:
+## Decisión
 
-```text
-src/types/user.ts
-```
+Se utilizó TanStack Query para gestionar datos provenientes de la API.
 
-El rol se definió como:
+## Motivo
 
-```text
-"user" | "admin"
-```
+Una aplicación que consume APIs debe controlar:
 
-en lugar de utilizar simplemente:
+* Loading.
+* Success.
+* Error.
+* Cache.
+* Refetch.
+* Actualización de datos.
 
-```text
-string
-```
+TanStack Query proporciona estas capacidades.
 
-### Decisión
+## Beneficio
 
-Esto permite que TypeScript restrinja los posibles roles a los valores definidos por el backend.
-
-Además, facilita posteriormente condiciones como:
-
-```text
-user.role === "admin"
-```
-
-para controlar funcionalidades administrativas.
-
----
-
-# 1.7 Tipado de autenticación
-
-Se creó:
-
-```text
-src/types/auth.ts
-```
-
-Se definieron tipos separados para:
-
-```text
-AuthResponse
-LoginData
-RegisterData
-```
-
-Esto distingue entre:
-
-### Datos enviados
-
-```text
-LoginData
-RegisterData
-```
-
-y:
-
-### Datos recibidos
-
-```text
-AuthResponse
-```
-
-La separación evita mezclar estructuras de entrada y salida de la API.
-
----
-
-# 1.8 Tipado de categorías
-
-Se definieron:
-
-```text
-Category
-CategoryData
-```
-
-`Category` representa la respuesta completa del backend:
-
-```text
-id
-name
-description
-createdAt
-updatedAt
-```
-
-Mientras `CategoryData` representa los datos necesarios para crear o actualizar una categoría:
-
-```text
-name
-description
-```
-
----
-
-# 1.9 Tipado de eventos
-
-Se definieron:
-
-```text
-Event
-EventImage
-EventData
-```
-
-Esto permite representar correctamente tanto el evento completo como sus imágenes.
-
-La estructura refleja la respuesta real observada en Swagger.
-
----
-
-# 1.10 Filtros de eventos
-
-El endpoint:
-
-```text
-GET /events
-```
-
-permite:
-
-```text
-search
-categoryId
-```
-
-Por esta razón, `eventService` acepta filtros opcionales.
-
-Conceptualmente:
-
-```text
-getAll()
-```
-
-realiza:
-
-```text
-GET /events
-```
-
-mientras:
-
-```text
-getAll({
-    search,
-    categoryId
-})
-```
-
-genera una petición equivalente a:
-
-```text
-GET /events?search=...&categoryId=...
-```
-
-### Decisión
-
-Los filtros se envían como `query parameters`, no como body, porque así está definido el contrato HTTP del backend.
-
----
-
-# 1.11 Hook `useFetch<T>`
-
-Se creó:
-
-```text
-src/hooks/useFetch.ts
-```
-
-Este hook utiliza:
+Se evita implementar manualmente toda la lógica de:
 
 ```text
 useEffect
 useState
-```
-
-y recibe una función que devuelve una promesa.
-
-Su estado permite manejar:
-
-```text
-data
 loading
 error
+cache
+refetch
 ```
 
-El hook utiliza el sistema genérico de TypeScript para conocer el tipo de información que recibe.
+para cada consulta.
+
+---
+
+# 18. Zustand
+
+## Decisión
+
+Se utilizó Zustand para manejar estado global cuando sea necesario.
+
+## Motivo
+
+No todo el estado debe convertirse en estado global.
+
+Se utiliza estado local cuando la información pertenece exclusivamente a un componente.
+
+Se utiliza estado global cuando múltiples partes de la aplicación necesitan acceder a la misma información.
+
+## Criterio
+
+```text
+Estado local
+↓
+useState / hooks
+
+Estado remoto
+↓
+TanStack Query
+
+Estado global de aplicación
+↓
+Zustand
+```
+
+Esta separación evita utilizar una única herramienta para todos los tipos de estado.
+
+---
+
+# 19. React Hook Form
+
+## Decisión
+
+Se utilizó React Hook Form para manejar formularios.
+
+## Motivo
+
+Permite:
+
+* Registrar campos.
+* Validar formularios.
+* Controlar errores.
+* Reducir renders innecesarios.
+* Simplificar formularios complejos.
+
+---
+
+# 20. Zod
+
+## Decisión
+
+Se utilizó Zod para validación estructurada.
+
+## Motivo
+
+Permite definir reglas de validación y mantener coherencia entre los datos esperados y los datos recibidos.
 
 Ejemplo conceptual:
 
-```text
-useFetch<Event[]>
+```ts
+const schema = z.object({
+  email: z.string().email(),
+  password: z.string().min(8),
+});
 ```
-
-o:
-
-```text
-useFetch<Category[]>
-```
-
-### Decisión
-
-Centralizar el patrón de:
-
-```text
-loading → petición → resultado/error
-```
-
-evita repetir la misma lógica en diferentes páginas.
-
-Además, el uso de `useEffect` permite cumplir el requisito específico de la prueba.
 
 ---
 
-# 1.12 Primera integración real
+# 21. Favoritos
 
-Antes de continuar con la autenticación se realizó una prueba utilizando:
+## Decisión
+
+Se implementó una funcionalidad específica para gestionar favoritos.
+
+La página utiliza:
 
 ```text
-GET /categories
+favoriteService
 ```
 
-El flujo completo fue:
+para obtener los eventos guardados.
+
+## Flujo
 
 ```text
-App
- ↓
-useFetch
- ↓
-categoryService
- ↓
-request<Category[]>
- ↓
-apiClient
- ↓
-Axios
- ↓
-GET /categories
- ↓
+Usuario
+   ↓
+EventCard
+   ↓
+Favorite action
+   ↓
+favoriteService
+   ↓
+API
+```
+
+La página de favoritos posteriormente consulta la información mediante el servicio.
+
+---
+
+# 22. Manejo de estados
+
+Se decidió contemplar diferentes estados de la aplicación.
+
+## Loading
+
+Mientras se cargan datos:
+
+```text
+Cargando favoritos...
+```
+
+## Error
+
+Cuando ocurre un problema:
+
+```text
+No se pudieron cargar tus favoritos.
+```
+
+## Empty state
+
+Cuando el usuario no tiene favoritos:
+
+```text
+Aún no tienes favoritos
+```
+
+## Success
+
+Cuando existen datos:
+
+```text
+Listado de eventos
+```
+
+## Motivo
+
+Una aplicación real no debe diseñarse solamente para el caso ideal donde todo funciona correctamente.
+
+---
+
+# 23. Página de favoritos
+
+La página `FavoritesPage` fue diseñada para contemplar tres estados principales:
+
+```text
+Loading
+Error
+Success
+```
+
+Y dentro del estado exitoso:
+
+```text
+Con favoritos
+Sin favoritos
+```
+
+Esto permite una mejor experiencia de usuario.
+
+---
+
+# 24. Actualización de favoritos
+
+Cuando un usuario elimina un favorito desde la página de favoritos, el evento debe desaparecer inmediatamente del listado.
+
+La lógica utilizada es equivalente a:
+
+```ts
+setFavorites((currentFavorites) =>
+  currentFavorites.filter(
+    (event) => event.id !== eventId,
+  ),
+);
+```
+
+## Motivo
+
+Se actualiza el estado local inmediatamente después de la acción.
+
+Esto evita que el usuario tenga que recargar manualmente la página.
+
+---
+
+# 25. Testing
+
+## Decisión
+
+Se implementaron pruebas utilizando:
+
+```text
+Vitest
+React Testing Library
+```
+
+## Motivo
+
+Las pruebas permiten verificar que los componentes se comportan como espera el usuario.
+
+Se prioriza probar comportamiento en lugar de detalles internos de implementación.
+
+---
+
+# 26. EventCard Testing
+
+Entre los comportamientos evaluados se encuentran:
+
+* Renderización del evento.
+* Título.
+* Categoría.
+* Descripción.
+* Ubicación.
+* Precio.
+* Imagen.
+* Enlace al detalle.
+* Estado de favorito.
+* Acción de agregar favorito.
+* Acción de quitar favorito.
+
+---
+
+# 27. Problema detectado durante testing
+
+Durante la ejecución de las pruebas se detectaron diferencias entre algunos tests y la implementación actual.
+
+Por ejemplo, un test esperaba:
+
+```text
+Ver detalles
+```
+
+mientras que el componente actualmente muestra:
+
+```text
+Ver detalles →
+```
+
+También existía una diferencia entre el texto esperado del botón de favoritos y la implementación visual actual.
+
+## Decisión
+
+No se debe modificar la interfaz únicamente para satisfacer un test desactualizado.
+
+Primero se debe determinar cuál es el comportamiento correcto según los requerimientos.
+
+Si el diseño actual es correcto, el test debe actualizarse para comprobar el comportamiento real.
+
+Por ejemplo:
+
+```tsx
+screen.getByRole("link", {
+  name: /Ver detalles/i,
+});
+```
+
+Esto resulta más robusto que depender de coincidencias exactas de texto.
+
+---
+
+# 28. Testing basado en accesibilidad
+
+Cuando sea posible, se decidió utilizar queries como:
+
+```tsx
+getByRole()
+```
+
+en lugar de depender únicamente de:
+
+```tsx
+getByText()
+```
+
+## Motivo
+
+Las consultas basadas en roles representan mejor cómo un usuario interactúa con la interfaz y permiten crear pruebas menos frágiles.
+
+Ejemplo:
+
+```tsx
+screen.getByRole("button", {
+  name: /favoritos/i,
+});
+```
+
+---
+
+# 29. ESLint
+
+## Decisión
+
+Se configuró ESLint.
+
+## Motivo
+
+Permite detectar:
+
+* Errores potenciales.
+* Imports innecesarios.
+* Problemas de React.
+* Variables sin utilizar.
+* Patrones problemáticos.
+
+El linting ayuda a mantener una base de código consistente.
+
+---
+
+# 30. Prettier
+
+## Decisión
+
+Se utilizó Prettier para mantener un formato consistente.
+
+## Motivo
+
+El formato del código no debería depender de las preferencias individuales de cada desarrollador.
+
+Esto facilita el trabajo colaborativo.
+
+---
+
+# 31. Git y control de versiones
+
+Se utiliza Git para gestionar el historial del proyecto.
+
+Se siguió una estrategia basada en ramas.
+
+Ejemplo:
+
+```text
+main
+develop
+feature/HU-...
+```
+
+## Motivo
+
+La rama principal debe representar una versión estable.
+
+El desarrollo de funcionalidades se realiza mediante ramas independientes.
+
+---
+
+# 32. Feature branches
+
+Las funcionalidades se desarrollan en ramas independientes.
+
+Ejemplo:
+
+```text
+feature/HU-CINE-004-...
+```
+
+## Beneficio
+
+Permite:
+
+* Aislar cambios.
+* Revisar código.
+* Reducir conflictos.
+* Asociar cambios con historias de usuario.
+* Facilitar integración.
+
+---
+
+# 33. Organización por responsabilidades
+
+La estructura general sigue una separación aproximada:
+
+```text
+src/
+│
+├── api/
+│
+├── components/
+│
+├── hooks/
+│
+├── pages/
+│
+├── routes/
+│
+├── services/
+│
+├── types/
+│
+├── App.tsx
+│
+└── main.tsx
+```
+
+## Justificación
+
+Cada directorio tiene una responsabilidad específica.
+
+Esto facilita localizar código y reducir dependencias innecesarias.
+
+---
+
+# 34. Decisión de no utilizar Sass
+
+Durante el desarrollo se evaluó el uso de Sass.
+
+Sin embargo, se presentó un problema relacionado con la dependencia:
+
+```text
+sass-embedded
+```
+
+## Decisión
+
+Se decidió continuar utilizando Tailwind CSS y CSS estándar en lugar de incorporar Sass.
+
+## Motivo
+
+El proyecto no necesitaba obligatoriamente las capacidades adicionales de Sass y mantener menos dependencias reduce posibles problemas de configuración.
+
+---
+
+# 35. Responsive Design
+
+## Decisión
+
+La interfaz debe adaptarse a diferentes tamaños de pantalla.
+
+Se utilizan breakpoints de Tailwind.
+
+Ejemplo:
+
+```text
+sm
+md
+lg
+xl
+```
+
+## Motivo
+
+Los usuarios pueden acceder desde:
+
+* Computadores.
+* Tablets.
+* Teléfonos.
+
+Por lo tanto, el diseño no debe depender de una única resolución.
+
+---
+
+# 36. Accesibilidad básica
+
+Se consideraron elementos como:
+
+* `aria-label`.
+* Roles semánticos.
+* Texto alternativo para imágenes.
+* Botones reales para acciones.
+* Links reales para navegación.
+
+Ejemplo:
+
+```tsx
+<button
+  aria-label="Agregar evento a favoritos"
+>
+```
+
+Esto mejora la interacción con tecnologías de asistencia.
+
+---
+
+# 37. Seguridad
+
+Se tomó la decisión de no almacenar información sensible directamente en el frontend.
+
+La aplicación debe evitar:
+
+* Contraseñas almacenadas manualmente.
+* Información bancaria.
+* Datos sensibles innecesarios.
+* Secretos del backend.
+
+Las claves privadas del backend nunca deben exponerse mediante variables `VITE_*`.
+
+---
+
+# 38. Separación frontend/backend
+
+Se decidió mantener una separación clara entre frontend y backend.
+
+```text
+Frontend
+   ↓
+API
+   ↓
 Backend
+   ↓
+Database
 ```
 
-La API respondió correctamente con la categoría creada mediante Swagger.
+El frontend no debe acceder directamente a la base de datos.
 
-Posteriormente se verificó también:
+Esto permite que el backend controle:
+
+* Autenticación.
+* Autorización.
+* Validaciones.
+* Acceso a datos.
+* Seguridad.
+
+---
+
+# 39. Mock API / desarrollo independiente
+
+Mientras el backend no estuviera completamente disponible, se contempló el uso de APIs mock para permitir que el frontend continuara desarrollándose.
+
+## Motivo
+
+El frontend y backend pueden avanzar paralelamente.
+
+Esto evita que el equipo frontend quede completamente bloqueado esperando la implementación del backend.
+
+---
+
+# 40. Manejo de errores
+
+Se decidió que los errores de API deben tratarse de manera controlada.
+
+La interfaz no debe mostrar errores técnicos innecesarios al usuario.
+
+En lugar de:
 
 ```text
-GET /events
+AxiosError: Request failed with status code 500
 ```
 
-obteniendo el evento creado en el backend.
+se debe mostrar un mensaje comprensible.
 
-### Resultado
-
-La comunicación básica entre frontend y backend quedó validada antes de construir funcionalidades dependientes de ella.
-
----
-
-# Arquitectura actual
-
-La arquitectura inicial del frontend queda organizada de la siguiente manera:
+Ejemplo:
 
 ```text
-                    React
-                      │
-                 Components
-                      │
-                    Hooks
-                      │
-                  Services
-                      │
-                 request<T>
-                      │
-                  Axios Client
-                  /          \
-        Request Interceptor   Response Interceptor
-              │                     │
-         JWT Bearer                401
-              │                     │
-              └─────────┬───────────┘
-                        ↓
-                   PlanCity API
+No se pudieron cargar tus favoritos.
 ```
 
-Esta separación busca mantener:
+---
 
-* Componentes enfocados en la interfaz.
-* Hooks enfocados en estado y ciclo de vida.
-* Services enfocados en funcionalidades de la API.
-* Axios enfocado en comunicación HTTP.
-* Types enfocados en el contrato de datos.
+# 41. Principio de no duplicación
+
+Cuando existe lógica repetida, se debe evaluar si puede extraerse a:
+
+* Hook.
+* Servicio.
+* Componente.
+* Utilidad.
+
+Esto evita tener varias implementaciones diferentes de la misma funcionalidad.
 
 ---
 
-# Decisiones principales hasta Fase 1
+# 42. Decisiones sobre el Homepage
 
-| Decisión                | Motivo                                               |
-| ----------------------- | ---------------------------------------------------- |
-| React + TypeScript      | Stack solicitado y tipado seguro                     |
-| Vite                    | Configuración rápida y adecuada para la prueba       |
-| Axios                   | Interceptores y cliente HTTP centralizado            |
-| localStorage            | Persistencia del token entre recargas                |
-| `request<T>`            | Genérico reutilizable y tipado                       |
-| Services separados      | Separación de responsabilidades                      |
-| DTOs separados          | Diferenciar datos enviados y recibidos               |
-| Interceptor 401         | Detectar sesiones inválidas centralizadamente        |
-| `.env`                  | Separar configuración del código                     |
-| `useFetch<T>`           | Reutilizar estado de carga/error y cumplir requisito |
-| Swagger como referencia | Trabajar contra el contrato real del backend         |
+El homepage fue revisado para mantener coherencia con el resto de la aplicación.
 
----
+La primera versión utilizaba una estética completamente oscura:
 
-# Estado del proyecto
+```text
+bg-zinc-950
+text-white
+pink-500
+```
 
-### Fase 0 — Preparación
+Sin embargo, se consideró que esta implementación no era consistente con las demás páginas.
 
-* [x] Backend funcionando.
-* [x] Swagger revisado.
-* [x] Endpoints identificados.
-* [x] Roles identificados.
-* [x] Respuestas de autenticación verificadas.
-* [x] Modelos de datos analizados.
-* [x] Proyecto React + TypeScript + Vite creado.
-* [x] Variables de entorno configuradas.
-* [x] Git configurado.
+## Decisión
 
-### Fase 1 — API + TypeScript
+El homepage debe compartir:
 
-* [x] Cliente Axios.
-* [x] Interceptor de JWT.
-* [x] Interceptor de `401`.
-* [x] Función genérica `request<T>`.
-* [x] Tipos de usuario.
-* [x] Tipos de autenticación.
-* [x] Tipos de categorías.
-* [x] Tipos de eventos.
-* [x] Servicios de autenticación.
-* [x] Servicios de categorías.
-* [x] Servicios de eventos.
-* [x] Servicios de favoritos.
-* [x] Hook `useFetch<T>`.
-* [x] Prueba de conexión con `/categories`.
-* [x] Prueba de conexión con `/events`.
+* Paleta.
+* Tipografía.
+* Espaciado.
+* Componentes.
+* Botones.
+* Estados visuales.
+
+con el resto de PlanCity.
+
+## Motivo
+
+Una aplicación debe sentirse como un único producto y no como un conjunto de páginas independientes.
 
 ---
 
-# Próxima fase
+# 43. Criterio para modificar tests
 
-## Fase 2 — Autenticación y sesión
+Cuando una prueba automatizada falla, no se debe modificar inmediatamente el código de producción.
 
-La siguiente fase estará enfocada en:
+Primero se determina:
 
-* `AuthContext`.
-* Login.
-* Registro.
-* Persistencia de sesión.
-* Logout.
-* Recuperación del usuario mediante `/users/me`.
-* Protección de rutas.
-* Diferenciación entre `user` y `admin`.
-* Redirección ante acceso no autorizado.
+```text
+¿El requerimiento cambió?
+        ↓
+¿El componente está incorrecto?
+        ↓
+¿El test está desactualizado?
+        ↓
+¿Existe un problema real?
+```
 
-El objetivo será establecer primero una sesión funcional y segura antes de implementar las funcionalidades que dependen del usuario autenticado.
+Solamente después de identificar la causa se decide qué archivo modificar.
+
+Este criterio evita introducir cambios artificiales únicamente para conseguir que los tests pasen.
+
+---
+
+# 44. Validación final
+
+Antes de considerar una funcionalidad terminada se deben comprobar:
+
+### Código
+
+```bash
+npm run lint
+```
+
+### TypeScript
+
+```bash
+npx tsc --noEmit
+```
+
+### Tests
+
+```bash
+npm test
+```
+
+### Build
+
+```bash
+npm run build
+```
+
+Los comandos exactos deben corresponder a los scripts definidos en `package.json`.
+
+---
+
+# 45. Definition of Done
+
+Una funcionalidad se considera terminada cuando:
+
+* [ ] El requerimiento está implementado.
+* [ ] La interfaz funciona correctamente.
+* [ ] La navegación funciona.
+* [ ] Los estados loading/error/empty fueron contemplados.
+* [ ] La integración con servicios funciona.
+* [ ] No existen errores TypeScript.
+* [ ] El lint no presenta errores bloqueantes.
+* [ ] Los tests relacionados pasan.
+* [ ] El build funciona.
+* [ ] El código está correctamente organizado.
+* [ ] La funcionalidad es responsive.
+* [ ] La experiencia visual es consistente.
+* [ ] El cambio está correctamente versionado.
+
+---
+
+# 46. Resultado de la toma de decisiones
+
+Las decisiones tomadas durante el desarrollo buscan equilibrar:
+
+```text
+Funcionalidad
+      +
+Mantenibilidad
+      +
+Escalabilidad
+      +
+Seguridad
+      +
+Experiencia de usuario
+      +
+Testabilidad
+```
+
+La arquitectura no fue diseñada únicamente para cumplir el estado actual de la prueba, sino para permitir que PlanCity continúe creciendo.
+
+---
+
+# 47. Conclusión
+
+El desarrollo de PlanCity se realizó siguiendo una estrategia basada en separación de responsabilidades, reutilización de componentes, tipado estático, pruebas automatizadas y una arquitectura preparada para integrarse con servicios externos.
+
+Las principales decisiones, como utilizar React con TypeScript, Vite, Tailwind CSS, React Router, Axios, TanStack Query, Zustand, React Hook Form y Zod, fueron tomadas considerando las necesidades concretas de la aplicación.
+
+Asimismo, se priorizó que las funcionalidades no solamente estuvieran implementadas visualmente, sino que pudieran ser verificadas mediante pruebas y herramientas de calidad.
+
+El proyecto queda preparado para continuar evolucionando hacia una aplicación completa, permitiendo incorporar nuevas funcionalidades sin comprometer la estructura existente.
+
+---
+
+# 48. Resumen tecnológico
+
+| Área            | Tecnología            | Motivo                       |
+| --------------- | --------------------- | ---------------------------- |
+| UI              | React                 | Componentización             |
+| Lenguaje        | TypeScript            | Seguridad de tipos           |
+| Build           | Vite                  | Desarrollo rápido            |
+| Estilos         | Tailwind CSS          | Consistencia y rapidez       |
+| Routing         | React Router          | SPA y navegación             |
+| HTTP            | Axios                 | Cliente API centralizado     |
+| Server State    | TanStack Query        | Cache y consultas            |
+| Global State    | Zustand               | Estado compartido            |
+| Forms           | React Hook Form       | Gestión de formularios       |
+| Validation      | Zod                   | Validación tipada            |
+| Testing         | Vitest                | Ejecución de tests           |
+| UI Testing      | React Testing Library | Testing orientado al usuario |
+| Lint            | ESLint                | Calidad del código           |
+| Formatting      | Prettier              | Consistencia                 |
+| Version Control | Git                   | Control de cambios           |
+
+---
+
+# 49. Estado del proyecto
+
+El proyecto debe considerarse **en desarrollo** mientras existan requerimientos de la prueba pendientes de implementar o validar.
+
+El estado final debe determinarse después de ejecutar:
+
+```bash
+npm test
+npm run lint
+npx tsc --noEmit
+npm run build
+```
+
+y comprobar individualmente los criterios de aceptación de cada requerimiento.
+
+> **Importante:** que la aplicación compile correctamente no significa automáticamente que todos los requerimientos estén cumplidos. La validación final debe combinar revisión funcional, pruebas automatizadas y comprobación de criterios de aceptación.

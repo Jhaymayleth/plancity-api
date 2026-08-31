@@ -24,7 +24,6 @@ export function CategoryFormPage() {
   // Cargar categoría cuando estamos editando
   useEffect(() => {
     if (!id) {
-      setLoading(false);
       return;
     }
 

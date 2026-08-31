@@ -54,7 +54,6 @@ export function EventFormPage() {
   // Cargar evento cuando estamos editando
   useEffect(() => {
     if (!id) {
-      setLoading(false);
       return;
     }
 

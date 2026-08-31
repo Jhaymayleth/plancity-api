@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { EventCard } from "../components/EventCard/EventCard";
 import { useAuth } from "../context/useAuth";
@@ -53,7 +54,6 @@ export function EventsPage() {
           new Set(favorites.map((event) => event.id)),
         );
       } catch {
-        // Los eventos deben seguir funcionando aunque falle favoritos.
         setFavoriteIds(new Set());
       }
     };
@@ -101,19 +101,61 @@ export function EventsPage() {
     });
   };
 
+  const handleDelete = async (eventId: string) => {
+    const confirmed = window.confirm(
+      "¿Estás seguro de que quieres eliminar este evento?",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setError("");
+
+      await eventService.remove(eventId);
+
+      setEvents((currentEvents) =>
+        currentEvents.filter(
+          (event) => event.id !== eventId,
+        ),
+      );
+
+      setFavoriteIds((currentIds) => {
+        const nextIds = new Set(currentIds);
+        nextIds.delete(eventId);
+        return nextIds;
+      });
+    } catch {
+      setError("No se pudo eliminar el evento.");
+    }
+  };
+
   return (
     <main>
       <h1>Eventos</h1>
 
+      {user?.role === "admin" && (
+        <p>
+          <Link to="/admin/events/new">
+            Crear evento
+          </Link>
+        </p>
+      )}
+
       <section>
-        <label htmlFor="search">Buscar eventos</label>
+        <label htmlFor="search">
+          Buscar eventos
+        </label>
 
         <input
           id="search"
           type="search"
           placeholder="Buscar por nombre..."
           value={search}
-          onChange={(event) => setSearch(event.target.value)}
+          onChange={(event) =>
+            setSearch(event.target.value)
+          }
         />
 
         <label htmlFor="category">
@@ -123,9 +165,13 @@ export function EventsPage() {
         <select
           id="category"
           value={categoryId}
-          onChange={(event) => setCategoryId(event.target.value)}
+          onChange={(event) =>
+            setCategoryId(event.target.value)
+          }
         >
-          <option value="">Todas las categorías</option>
+          <option value="">
+            Todas las categorías
+          </option>
 
           {categories.map((category) => (
             <option
@@ -138,28 +184,65 @@ export function EventsPage() {
         </select>
       </section>
 
-      {loading && <p>Cargando eventos...</p>}
-
-      {error && <p role="alert">{error}</p>}
-
-      {!loading && !error && events.length === 0 && (
-        <p>No se encontraron eventos.</p>
+      {loading && (
+        <p>Cargando eventos...</p>
       )}
 
-      {!loading && !error && events.length > 0 && (
-        <section>
-          {events.map((event) => (
-            <EventCard
-              key={event.id}
-              event={event}
-              isFavorite={favoriteIds.has(event.id)}
-              onFavoriteChange={(isFavorite) =>
-                handleFavoriteChange(event.id, isFavorite)
-              }
-            />
-          ))}
-        </section>
+      {error && (
+        <p role="alert">
+          {error}
+        </p>
       )}
+
+      {!loading &&
+        !error &&
+        events.length === 0 && (
+          <p>
+            No se encontraron eventos.
+          </p>
+        )}
+
+      {!loading &&
+        !error &&
+        events.length > 0 && (
+          <section>
+            {events.map((event) => (
+              <article key={event.id}>
+                <EventCard
+                  event={event}
+                  isFavorite={favoriteIds.has(
+                    event.id,
+                  )}
+                  onFavoriteChange={(isFavorite) =>
+                    handleFavoriteChange(
+                      event.id,
+                      isFavorite,
+                    )
+                  }
+                />
+
+                {user?.role === "admin" && (
+                  <div>
+                    <Link
+                      to={`/admin/events/${event.id}/edit`}
+                    >
+                      Editar
+                    </Link>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        handleDelete(event.id)
+                      }
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                )}
+              </article>
+            ))}
+          </section>
+        )}
     </main>
   );
 }

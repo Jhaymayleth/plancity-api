@@ -181,8 +181,7 @@ interface SaveEventVariables {
   data: EventData;
 }
 
-/** Crear/actualizar evento. Incluye el 409 de nombre duplicado del servidor. */
-export function useSaveEventMutation() {
+/** Crear/actualizar evento. Incluye el 409 de nombre duplicado del servidor. */export function useSaveEventMutation() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -206,6 +205,32 @@ export function useSaveEventMutation() {
 
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: eventKeys.all });
+    },
+  });
+}
+
+/**
+ * Eliminar categoría. Si tiene eventos, la API responde error por
+ * ON DELETE RESTRICT y se muestra el mensaje del servidor.
+ */
+export function useDeleteCategoryMutation() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (categoryId: string) => categoryService.remove(categoryId),
+
+    onSuccess: () => {
+      toast.success("Categoría eliminada correctamente.");
+    },
+
+    onError: (error) => {
+      toast.error(
+        getErrorMessage(error, "No se pudo eliminar la categoría."),
+      );
+    },
+
+    onSettled: () => {
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
     },
   });
 }

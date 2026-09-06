@@ -13,6 +13,7 @@ import { CategoryDetailPage } from "../pages/CategoryDetailPage";
 import { FavoritesPage } from "../pages/FavoritesPage";
 import { LoginPage } from "../pages/LoginPage";
 import { RegisterPage } from "../pages/RegisterPage";
+import { NotFoundPage } from "../pages/NotFoundPage";
 
 import { CategoryFormPage } from "../pages/admin/CategoryFormPage";
 import { EventFormPage } from "../pages/admin/EventFormPage";
@@ -77,10 +78,7 @@ export function AppRouter() {
           />
         </Route>
 
-        <Route
-          path="*"
-          element={<p>Página no encontrada</p>}
-        />
+        <Route path="*" element={<NotFoundPage />} />
       </Routes>
       </MainLayout>
     </BrowserRouter>

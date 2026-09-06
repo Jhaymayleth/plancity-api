@@ -1,15 +1,16 @@
 import { Link } from "react-router-dom";
+import { MapPinned } from "lucide-react";
 
 export function NotFoundPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-indigo-50 to-violet-50 px-6 py-12">
       <div className="w-full max-w-xl rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-[0_25px_80px_rgba(15,23,42,0.12)] sm:p-12">
-        <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-indigo-100 text-4xl shadow-inner shadow-indigo-200/60">
-          404
+        <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 shadow-inner shadow-indigo-200/60">
+          <MapPinned className="h-12 w-12" aria-hidden="true" />
         </div>
 
         <p className="mt-8 text-sm font-bold uppercase tracking-[0.25em] text-indigo-600">
-          Página no encontrada
+          Error 404 · Página no encontrada
         </p>
 
         <h1 className="mt-4 text-4xl font-black tracking-tight text-slate-900 sm:text-5xl">

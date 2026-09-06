@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 
 import { EventCard } from "../components/EventCard/EventCard";
 import {
@@ -26,9 +26,13 @@ const PAGE_SIZE = 9;
 
 export function EventsPage() {
   const { user } = useAuth();
+  // El hero del home enlaza con ?search= y ?categoryId=: se usan como filtro inicial.
+  const [searchParams] = useSearchParams();
 
-  const [search, setSearch] = useState("");
-  const [categoryId, setCategoryId] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
+  const [categoryId, setCategoryId] = useState(
+    () => searchParams.get("categoryId") ?? "",
+  );
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 

@@ -1,8 +1,14 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import {
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+import type { ReactNode } from "react";
 
 import { EventCard } from "./EventCard";
+import { formatPriceCOP } from "../../utils/formatters";
 import type { Event } from "../../types/event";
 import type { Category } from "../../types/category";
 
@@ -66,15 +72,25 @@ const mockEventWithoutImage: Event = {
 };
 
 describe("EventCard", () => {
+  const renderCard = (ui: ReactNode) => {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </QueryClientProvider>,
+    );
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
   it("should render the event name", () => {
-    render(
-      <MemoryRouter>
+    renderCard(
         <EventCard event={mockEventWithImage} />
-      </MemoryRouter>
     );
 
     const heading = screen.getByText(mockEventWithImage.name);
@@ -82,10 +98,8 @@ describe("EventCard", () => {
   });
 
   it("should render the event category", () => {
-    render(
-      <MemoryRouter>
+    renderCard(
         <EventCard event={mockEventWithImage} />
-      </MemoryRouter>
     );
 
     const category = screen.getByText(mockCategory.name);
@@ -93,10 +107,8 @@ describe("EventCard", () => {
   });
 
   it("should render the event description", () => {
-    render(
-      <MemoryRouter>
+    renderCard(
         <EventCard event={mockEventWithImage} />
-      </MemoryRouter>
     );
 
     const description = screen.getByText(mockEventWithImage.description);
@@ -104,32 +116,29 @@ describe("EventCard", () => {
   });
 
   it("should render the event location", () => {
-    render(
-      <MemoryRouter>
+    renderCard(
         <EventCard event={mockEventWithImage} />
-      </MemoryRouter>
     );
 
     const location = screen.getByText(new RegExp(mockEventWithImage.location));
     expect(location).toBeInTheDocument();
   });
 
-  it("should render the event price formatted with dollar sign", () => {
-    render(
-      <MemoryRouter>
+  it("should render the event price with COP formatting", () => {
+    renderCard(
         <EventCard event={mockEventWithImage} />
-      </MemoryRouter>
     );
 
-    const price = screen.getByText(`$${mockEventWithImage.price}`);
+    const expectedPrice = formatPriceCOP(mockEventWithImage.price);
+    const price = screen.getByText(
+      (_, element) => element?.textContent === expectedPrice,
+    );
     expect(price).toBeInTheDocument();
   });
 
   it("should render the image when event has images", () => {
-    render(
-      <MemoryRouter>
+    renderCard(
         <EventCard event={mockEventWithImage} />
-      </MemoryRouter>
     );
 
     const image = screen.getByAltText(mockEventWithImage.name);
@@ -138,10 +147,8 @@ describe("EventCard", () => {
   });
 
   it("should not render image when event has no images", () => {
-    render(
-      <MemoryRouter>
+    renderCard(
         <EventCard event={mockEventWithoutImage} />
-      </MemoryRouter>
     );
 
     const images = screen.queryAllByRole("img");
@@ -149,10 +156,8 @@ describe("EventCard", () => {
   });
 
   it("should render the 'Ver detalles' link", () => {
-    render(
-      <MemoryRouter>
+    renderCard(
         <EventCard event={mockEventWithImage} />
-      </MemoryRouter>
     );
 
     const link = screen.getByRole("link", {
@@ -162,10 +167,8 @@ describe("EventCard", () => {
   });
 
   it("should link to the correct event detail page", () => {
-    render(
-      <MemoryRouter>
+    renderCard(
         <EventCard event={mockEventWithImage} />
-      </MemoryRouter>
     );
 
     const link = screen.getByRole("link", {
@@ -175,10 +178,8 @@ describe("EventCard", () => {
   });
 
   it("should have correct alt text for the image", () => {
-    render(
-      <MemoryRouter>
+    renderCard(
         <EventCard event={mockEventWithImage} />
-      </MemoryRouter>
     );
 
     const image = screen.getByAltText(mockEventWithImage.name);
@@ -186,10 +187,8 @@ describe("EventCard", () => {
   });
 
   it("should render favorite button when user is authenticated", () => {
-    render(
-      <MemoryRouter>
+    renderCard(
         <EventCard event={mockEventWithImage} />
-      </MemoryRouter>
     );
 
     const favoriteButton = screen.getByRole("button", {
@@ -198,31 +197,27 @@ describe("EventCard", () => {
     expect(favoriteButton).toBeInTheDocument();
   });
 
-  it("should display correct favorite button text when not favorited", () => {
-    render(
-      <MemoryRouter>
+  it("should display unfavorited state with outline heart", () => {
+    renderCard(
         <EventCard event={mockEventWithImage} isFavorite={false} />
-      </MemoryRouter>
     );
 
     const favoriteButton = screen.getByRole("button", {
       name: /agregar.*a favoritos/i,
     });
     expect(favoriteButton).toBeInTheDocument();
-    expect(favoriteButton.textContent).toBe("♡");
+    expect(favoriteButton).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("should display correct favorite button text when favorited", () => {
-    render(
-      <MemoryRouter>
+  it("should display favorited state with filled heart", () => {
+    renderCard(
         <EventCard event={mockEventWithImage} isFavorite={true} />
-      </MemoryRouter>
     );
 
     const favoriteButton = screen.getByRole("button", {
       name: /quitar.*de favoritos/i,
     });
     expect(favoriteButton).toBeInTheDocument();
-    expect(favoriteButton.textContent).toBe("♥");
+    expect(favoriteButton).toHaveAttribute("aria-pressed", "true");
   });
 });

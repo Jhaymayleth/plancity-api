@@ -2,8 +2,14 @@ import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
+import {
+  QueryClient,
+  QueryClientProvider,
+} from "@tanstack/react-query";
+import type { ReactNode } from "react";
 
 import { EventsPage } from "./EventsPage";
+import { formatPriceCOP } from "../utils/formatters";
 import * as eventService from "../services/eventService";
 import * as categoryService from "../services/categoryService";
 import * as favoriteService from "../services/favoriteService";
@@ -86,6 +92,20 @@ const mockEvent2: Event = {
 };
 
 describe("EventsPage", () => {
+  let queryClient: QueryClient;
+
+  const renderPage = (ui: ReactNode = <EventsPage />) => {
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false, gcTime: 0 } },
+    });
+
+    return render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>{ui}</MemoryRouter>
+      </QueryClientProvider>,
+    );
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     // Default mocks
@@ -107,16 +127,16 @@ describe("EventsPage", () => {
           }),
       );
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
-      expect(screen.getByText("Cargando eventos...")).toBeInTheDocument();
+      expect(
+        screen.getByLabelText("Cargando eventos"),
+      ).toBeInTheDocument();
 
       await waitFor(() => {
-        expect(screen.queryByText("Cargando eventos...")).not.toBeInTheDocument();
+        expect(
+          screen.queryByLabelText("Cargando eventos"),
+        ).not.toBeInTheDocument();
       });
     });
   });
@@ -127,11 +147,7 @@ describe("EventsPage", () => {
         new Error("Network error"),
       );
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         const alert = screen.getByRole("alert");
@@ -145,11 +161,7 @@ describe("EventsPage", () => {
     it("should display empty message when no events exist", async () => {
       vi.mocked(eventService.eventService.getAll).mockResolvedValue([]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         expect(
@@ -166,11 +178,7 @@ describe("EventsPage", () => {
         mockEvent2,
       ]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText(mockEvent1.name)).toBeInTheDocument();
@@ -183,17 +191,18 @@ describe("EventsPage", () => {
         mockEvent1,
       ]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText(mockEvent1.name)).toBeInTheDocument();
         expect(screen.getByText(mockEvent1.description)).toBeInTheDocument();
         expect(screen.getByText(new RegExp(mockEvent1.location))).toBeInTheDocument();
-        expect(screen.getByText(`$${mockEvent1.price}`)).toBeInTheDocument();
+        const expectedPrice = formatPriceCOP(mockEvent1.price);
+        expect(
+          screen.getByText(
+            (_, element) => element?.textContent === expectedPrice,
+          ),
+        ).toBeInTheDocument();
       });
     });
 
@@ -202,11 +211,7 @@ describe("EventsPage", () => {
         mockEvent1,
       ]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText(mockCategory.name)).toBeInTheDocument();
@@ -222,11 +227,7 @@ describe("EventsPage", () => {
 
       const user = userEvent.setup();
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       const searchInput = screen.getByPlaceholderText("Buscar por nombre...");
 
@@ -249,11 +250,7 @@ describe("EventsPage", () => {
         mockCategory,
       ]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         expect(
@@ -267,11 +264,7 @@ describe("EventsPage", () => {
         mockCategory,
       ]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         const categorySelect = screen.getByLabelText("Filtrar por categoría");
@@ -291,15 +284,13 @@ describe("EventsPage", () => {
 
       const user = userEvent.setup();
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
+      // Las categorías llegan por query asíncrona: esperar la opción.
       await waitFor(() => {
-        const categorySelect = screen.getByLabelText("Filtrar por categoría");
-        expect(categorySelect).toBeInTheDocument();
+        expect(
+          screen.getByRole("option", { name: mockCategory.name }),
+        ).toBeInTheDocument();
       });
 
       const select = screen.getByLabelText("Filtrar por categoría") as HTMLSelectElement;
@@ -347,11 +338,7 @@ describe("EventsPage", () => {
         mockEvent1,
       ]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         expect(
@@ -369,11 +356,7 @@ describe("EventsPage", () => {
         mockEvent2,
       ]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         // Event1 should have the favorite button with favorited state
@@ -410,11 +393,7 @@ describe("EventsPage", () => {
     it("should show create event link only for admin users", async () => {
       vi.mocked(eventService.eventService.getAll).mockResolvedValue([]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByRole("link", {
@@ -426,11 +405,7 @@ describe("EventsPage", () => {
     it("should show create event link with correct path", async () => {
       vi.mocked(eventService.eventService.getAll).mockResolvedValue([]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         const createLink = screen.getByRole("link", {
@@ -445,11 +420,7 @@ describe("EventsPage", () => {
         mockEvent1,
       ]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         expect(screen.getByText("Editar")).toBeInTheDocument();
@@ -462,11 +433,7 @@ describe("EventsPage", () => {
         mockEvent1,
       ]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         const editLink = screen.getByText("Editar");
@@ -482,11 +449,7 @@ describe("EventsPage", () => {
     it("should not show create event link for non-admin users", async () => {
       vi.mocked(eventService.eventService.getAll).mockResolvedValue([]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         expect(screen.queryByText("Crear evento")).not.toBeInTheDocument();
@@ -498,11 +461,7 @@ describe("EventsPage", () => {
         mockEvent1,
       ]);
 
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       await waitFor(() => {
         expect(screen.queryByText("Editar")).not.toBeInTheDocument();
@@ -513,21 +472,13 @@ describe("EventsPage", () => {
 
   describe("UI Elements", () => {
     it("should display page title", async () => {
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       expect(screen.getByText("Eventos")).toBeInTheDocument();
     });
 
     it("should display search input", async () => {
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       expect(
         screen.getByPlaceholderText("Buscar por nombre..."),
@@ -535,21 +486,13 @@ describe("EventsPage", () => {
     });
 
     it("should display category filter label", async () => {
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       expect(screen.getByLabelText("Filtrar por categoría")).toBeInTheDocument();
     });
 
     it("should display default category option", async () => {
-      render(
-        <MemoryRouter>
-          <EventsPage />
-        </MemoryRouter>,
-      );
+      renderPage();
 
       expect(
         screen.getByDisplayValue("Todas las categorías"),

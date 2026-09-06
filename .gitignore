@@ -1,0 +1,28 @@
+# Monorepo PlanCity (frontend + api)
+# Dependencies
+**/node_modules/
+
+# Builds
+**/dist/
+**/build/
+**/coverage/
+**/.nyc_output/
+
+# Env (nunca commitear secretos; ver .env.example)
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# OS / Editores
+.DS_Store
+.vscode/
+.idea/
+
+# Temp
+.temp
+.tmp/

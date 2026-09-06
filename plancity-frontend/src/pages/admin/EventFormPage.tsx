@@ -1,156 +1,136 @@
-import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import { useEffect } from "react";
+import { useFieldArray, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Link, useNavigate, useParams } from "react-router-dom";
+
+import { Field } from "../../components/ui/Field";
+import { fieldInputClassName } from "../../components/ui/inputStyles";
+import { Spinner } from "../../components/ui/Spinner";
 import {
-  Link,
-  useNavigate,
-  useParams,
-} from "react-router-dom";
+  useCategoriesQuery,
+  useEventQuery,
+  useSaveEventMutation,
+} from "../../hooks/useEventsQuery";
+import { eventSchema, type EventFormData } from "../../schemas/forms";
+import { getErrorMessage } from "../../utils/errors";
+import type { EventData } from "../../types/event";
 
-import { categoryService } from "../../services/categoryService";
-import { eventService } from "../../services/eventService";
-
-import type { Category } from "../../types/category";
+const MAX_IMAGES = 10;
 
 export function EventFormPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
   const isEditing = Boolean(id);
+  const categoriesQuery = useCategoriesQuery();
+  const eventQuery = useEventQuery(id);
+  const saveMutation = useSaveEventMutation();
 
-  const [categories, setCategories] = useState<Category[]>([]);
+  const {
+    register,
+    control,
+    handleSubmit,
+    reset,
+    setValue,
+    formState: { errors, isSubmitting },
+  } = useForm<EventFormData>({
+    resolver: zodResolver(eventSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      date: "",
+      location: "",
+      price: 0,
+      capacity: 1,
+      categoryId: "",
+      images: [{ url: "" }],
+    },
+  });
 
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [date, setDate] = useState("");
-  const [location, setLocation] = useState("");
-  const [price, setPrice] = useState("");
-  const [capacity, setCapacity] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [images, setImages] = useState<string[]>([""]);
+  const {
+    fields: imageFields,
+    append: addImage,
+    remove: removeImage,
+  } = useFieldArray({ control, name: "images" });
 
-  const [loading, setLoading] = useState(isEditing);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
-
+  // RHF recomienda reset() para hidratar el formulario en edición.
   useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const data = await categoryService.getAll();
-
-        setCategories(data);
-
-        if (!isEditing && data.length > 0) {
-          setCategoryId(data[0].id);
-        }
-      } catch {
-        setError("No se pudieron cargar las categorías.");
-      }
-    };
-
-    loadCategories();
-  }, [isEditing]);
-
-  useEffect(() => {
-    if (!id) {
-      return;
-    }
-
-    const loadEvent = async () => {
-      try {
-        setLoading(true);
-        setError("");
-
-        const event = await eventService.getById(id);
-
-        setName(event.name);
-        setDescription(event.description);
-        setDate(formatDateForInput(event.date));
-        setLocation(event.location);
-        setPrice(String(event.price));
-        setCapacity(String(event.capacity));
-        setCategoryId(event.categoryId);
-
-        setImages(
+    if (eventQuery.data) {
+      const event = eventQuery.data;
+      reset({
+        name: event.name,
+        description: event.description ?? "",
+        date: formatDateForInput(event.date),
+        location: event.location,
+        price: event.price,
+        capacity: event.capacity,
+        categoryId: event.categoryId,
+        images:
           event.images.length > 0
-            ? event.images
+            ? [...event.images]
                 .sort((a, b) => a.order - b.order)
-                .map((image) => image.url)
-            : [""],
-        );
-      } catch {
-        setError("No se pudo cargar el evento.");
-      } finally {
-        setLoading(false);
-      }
+                .map((image) => ({ url: image.url }))
+            : [{ url: "" }],
+      });
+    }
+  }, [eventQuery.data, reset]);
+
+  const onSubmit = (data: EventFormData) => {
+    const payload: EventData = {
+      name: data.name,
+      description: data.description ?? "",
+      date: new Date(data.date).toISOString(),
+      location: data.location,
+      price: data.price,
+      capacity: data.capacity,
+      categoryId: data.categoryId,
+      images: data.images
+        .map((image) => image.url.trim())
+        .filter((url) => url !== ""),
     };
 
-    loadEvent();
-  }, [id]);
-
-  const handleImageChange = (index: number, value: string) => {
-    setImages((currentImages) =>
-      currentImages.map((image, imageIndex) =>
-        imageIndex === index ? value : image,
-      ),
+    saveMutation.mutate(
+      { id, data: payload },
+      { onSuccess: () => navigate("/events") },
     );
   };
 
-  const addImageField = () => {
-    setImages((currentImages) => [...currentImages, ""]);
-  };
-
-  const removeImageField = (index: number) => {
-    setImages((currentImages) => {
-      const nextImages = currentImages.filter(
-        (_, imageIndex) => imageIndex !== index,
-      );
-
-      return nextImages.length > 0 ? nextImages : [""];
-    });
-  };
-
-  const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-
-    try {
-      setSaving(true);
-      setError("");
-
-      const data = {
-        name,
-        description,
-        date: new Date(date).toISOString(),
-        location,
-        price: Number(price),
-        capacity: Number(capacity),
-        categoryId,
-        images: images.filter((image) => image.trim() !== ""),
-      };
-
-      if (isEditing && id) {
-        await eventService.update(id, data);
-      } else {
-        await eventService.create(data);
-      }
-
-      navigate("/events");
-    } catch {
-      setError(
-        isEditing
-          ? "No se pudo actualizar el evento."
-          : "No se pudo crear el evento.",
-      );
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  if (loading) {
+  if (isEditing && eventQuery.isPending) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-12">
-        <p className="text-lg font-medium text-slate-500">Cargando evento...</p>
+        <p className="flex items-center gap-2 text-lg font-medium text-slate-500">
+          <Spinner /> Cargando evento...
+        </p>
+      </main>
+    );
+  }
+
+  if (isEditing && eventQuery.isError) {
+    return (
+      <main className="min-h-screen bg-slate-50 px-6 py-12">
+        <div className="mx-auto max-w-5xl">
+          <p
+            role="alert"
+            className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
+          >
+            {getErrorMessage(eventQuery.error, "No se pudo cargar el evento.")}
+          </p>
+          <div className="mt-6 flex gap-4">
+            <button
+              type="button"
+              onClick={() => eventQuery.refetch()}
+              className="font-semibold text-indigo-600 hover:text-indigo-800"
+            >
+              Reintentar
+            </button>
+            <Link
+              to="/events"
+              className="font-semibold text-slate-600 hover:text-indigo-600"
+            >
+              ← Volver a eventos
+            </Link>
+          </div>
+        </div>
       </main>
     );
   }
@@ -166,156 +146,171 @@ export function EventFormPage() {
         </Link>
 
         <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-[0_25px_80px_rgba(15,23,42,0.08)] sm:p-8 lg:p-10">
-          <div className="mb-8 flex items-center justify-between gap-4 border-b border-slate-200 pb-6">
-            <div>
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-600">
-                Administración
-              </p>
-              <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
-                {isEditing ? "Editar evento" : "Nuevo evento"}
-              </h1>
-            </div>
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-indigo-100 text-2xl">
-              🎟️
-            </div>
+          <div className="mb-8 border-b border-slate-200 pb-6">
+            <p className="text-sm font-bold uppercase tracking-[0.2em] text-indigo-600">
+              Administración
+            </p>
+            <h1 className="mt-2 text-3xl font-black tracking-tight text-slate-900">
+              {isEditing ? "Editar evento" : "Nuevo evento"}
+            </h1>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            noValidate
+            className="space-y-6"
+          >
             <div className="grid gap-6 md:grid-cols-2">
-              <div className="md:col-span-2">
-                <label htmlFor="name" className="mb-2 block text-sm font-semibold text-slate-700">
-                  Nombre del evento
-                </label>
+              <Field
+                label="Nombre del evento"
+                htmlFor="name"
+                error={errors.name?.message}
+                className="md:col-span-2"
+              >
                 <input
                   id="name"
                   type="text"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  required
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                  {...register("name")}
+                  className={fieldInputClassName(Boolean(errors.name))}
                   placeholder="Ej. Festival de música"
                 />
-              </div>
+              </Field>
 
-              <div className="md:col-span-2">
-                <label htmlFor="description" className="mb-2 block text-sm font-semibold text-slate-700">
-                  Descripción
-                </label>
+              <Field
+                label="Descripción"
+                htmlFor="description"
+                error={errors.description?.message}
+                className="md:col-span-2"
+              >
                 <textarea
                   id="description"
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  required
                   rows={5}
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                  {...register("description")}
+                  className={fieldInputClassName(Boolean(errors.description))}
                   placeholder="Describe la experiencia, el público y la propuesta del evento..."
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label htmlFor="date" className="mb-2 block text-sm font-semibold text-slate-700">
-                  Fecha y hora
-                </label>
+              <Field label="Fecha y hora" htmlFor="date" error={errors.date?.message}>
                 <input
                   id="date"
                   type="datetime-local"
-                  value={date}
-                  onChange={(event) => setDate(event.target.value)}
-                  required
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                  {...register("date")}
+                  className={fieldInputClassName(Boolean(errors.date))}
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label htmlFor="location" className="mb-2 block text-sm font-semibold text-slate-700">
-                  Ubicación
-                </label>
+              <Field
+                label="Ubicación"
+                htmlFor="location"
+                error={errors.location?.message}
+              >
                 <input
                   id="location"
                   type="text"
-                  value={location}
-                  onChange={(event) => setLocation(event.target.value)}
-                  required
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
-                  placeholder="Ej. Plaza Mayor, Madrid"
+                  {...register("location")}
+                  className={fieldInputClassName(Boolean(errors.location))}
+                  placeholder="Ej. Parque de la 93, Bogotá"
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label htmlFor="price" className="mb-2 block text-sm font-semibold text-slate-700">
-                  Precio
-                </label>
+              <Field
+                label="Precio (0 = gratis)"
+                htmlFor="price"
+                error={errors.price?.message}
+              >
                 <input
                   id="price"
                   type="number"
                   min="0"
                   step="0.01"
-                  value={price}
-                  onChange={(event) => setPrice(event.target.value)}
-                  required
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                  {...register("price", { valueAsNumber: true })}
+                  className={fieldInputClassName(Boolean(errors.price))}
                 />
-              </div>
+              </Field>
 
-              <div>
-                <label htmlFor="capacity" className="mb-2 block text-sm font-semibold text-slate-700">
-                  Capacidad
-                </label>
+              <Field
+                label="Capacidad"
+                htmlFor="capacity"
+                error={errors.capacity?.message}
+              >
                 <input
                   id="capacity"
                   type="number"
                   min="1"
-                  value={capacity}
-                  onChange={(event) => setCapacity(event.target.value)}
-                  required
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                  step="1"
+                  {...register("capacity", { valueAsNumber: true })}
+                  className={fieldInputClassName(Boolean(errors.capacity))}
                 />
-              </div>
+              </Field>
 
-              <div className="md:col-span-2">
-                <label htmlFor="category" className="mb-2 block text-sm font-semibold text-slate-700">
-                  Categoría
-                </label>
+              <Field
+                label="Categoría"
+                htmlFor="category"
+                error={
+                  errors.categoryId?.message ??
+                  (categoriesQuery.isError
+                    ? "No se pudieron cargar las categorías."
+                    : undefined)
+                }
+                className="md:col-span-2"
+              >
                 <select
                   id="category"
-                  value={categoryId}
-                  onChange={(event) => setCategoryId(event.target.value)}
-                  required
-                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                  {...register("categoryId")}
+                  className={fieldInputClassName(Boolean(errors.categoryId))}
                 >
                   <option value="">Selecciona una categoría</option>
-                  {categories.map((category) => (
+                  {(categoriesQuery.data ?? []).map((category) => (
                     <option key={category.id} value={category.id}>
                       {category.name}
                     </option>
                   ))}
                 </select>
-              </div>
+              </Field>
             </div>
 
             <fieldset className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
-              <legend className="px-2 text-sm font-semibold text-slate-700">Imágenes</legend>
+              <legend className="px-2 text-sm font-semibold text-slate-700">
+                Imágenes (máx. {MAX_IMAGES})
+              </legend>
 
               <div className="mt-4 space-y-4">
-                {images.map((image, index) => (
-                  <div key={index} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                {imageFields.map((field, index) => (
+                  <div
+                    key={field.id}
+                    className="flex flex-col gap-2 sm:flex-row sm:items-end"
+                  >
                     <div className="flex-1">
-                      <label htmlFor={`image-${index}`} className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <label
+                        htmlFor={`images.${index}.url`}
+                        className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500"
+                      >
                         URL de imagen {index + 1}
                       </label>
                       <input
-                        id={`image-${index}`}
+                        id={`images.${index}.url`}
                         type="url"
-                        value={image}
-                        onChange={(event) => handleImageChange(index, event.target.value)}
+                        {...register(`images.${index}.url` as const)}
                         placeholder="https://..."
-                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100"
+                        className={fieldInputClassName(
+                          Boolean(errors.images?.[index]?.url),
+                        )}
                       />
+                      {errors.images?.[index]?.url?.message && (
+                        <p role="alert" className="mt-1.5 text-sm text-red-600">
+                          {errors.images[index]?.url?.message}
+                        </p>
+                      )}
                     </div>
 
                     <button
                       type="button"
-                      onClick={() => removeImageField(index)}
+                      onClick={() =>
+                        imageFields.length > 1
+                          ? removeImage(index)
+                          : setValue("images", [{ url: "" }])
+                      }
                       className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100"
                     >
                       Eliminar
@@ -324,20 +319,21 @@ export function EventFormPage() {
                 ))}
               </div>
 
+              {typeof errors.images?.message === "string" && (
+                <p role="alert" className="mt-2 text-sm text-red-600">
+                  {errors.images.message}
+                </p>
+              )}
+
               <button
                 type="button"
-                onClick={addImageField}
-                className="mt-4 inline-flex rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100"
+                onClick={() => addImage({ url: "" })}
+                disabled={imageFields.length >= MAX_IMAGES}
+                className="mt-4 inline-flex rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm font-semibold text-indigo-700 transition hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 + Agregar imagen
               </button>
             </fieldset>
-
-            {error && (
-              <p role="alert" className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600">
-                {error}
-              </p>
-            )}
 
             <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end">
               <Link
@@ -348,10 +344,14 @@ export function EventFormPage() {
               </Link>
               <button
                 type="submit"
-                disabled={saving}
+                disabled={isSubmitting || saveMutation.isPending}
                 className="rounded-2xl bg-slate-900 px-5 py-3 font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-70"
               >
-                {saving ? "Guardando..." : isEditing ? "Actualizar evento" : "Crear evento"}
+                {saveMutation.isPending
+                  ? "Guardando..."
+                  : isEditing
+                    ? "Actualizar evento"
+                    : "Crear evento"}
               </button>
             </div>
           </form>

@@ -1,35 +1,38 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "react-router-dom";
 
+import { Field } from "../components/ui/Field";
+import { fieldInputClassName } from "../components/ui/inputStyles";
 import { useAuth } from "../context/useAuth";
+import { registerSchema, type RegisterFormData } from "../schemas/forms";
+import { getErrorMessage } from "../utils/errors";
 
 export function RegisterPage() {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register: signup } = useAuth();
+  const [serverError, setServerError] = useState("");
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<RegisterFormData>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: { name: "", email: "", password: "" },
+  });
 
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (
-    event: FormEvent<HTMLFormElement>,
-  ) => {
-    event.preventDefault();
-
-    setError("");
-    setLoading(true);
+  const onSubmit = async (data: RegisterFormData) => {
+    setServerError("");
 
     try {
-      await register({ name, email, password });
+      await signup(data);
       navigate("/");
-    } catch {
-      setError("No se pudo crear la cuenta.");
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      setServerError(
+        getErrorMessage(error, "No se pudo crear la cuenta."),
+      );
     }
   };
 
@@ -82,76 +85,67 @@ export function RegisterPage() {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
-            <div>
-              <label
-                htmlFor="name"
-                className="mb-2 block text-sm font-semibold text-slate-700"
-              >
-                Nombre
-              </label>
+          <form
+            onSubmit={handleSubmit(onSubmit)}
+            noValidate
+            className="mt-8 space-y-5"
+          >
+            <Field label="Nombre" htmlFor="name" error={errors.name?.message}>
               <input
                 id="name"
                 type="text"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                required
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                autoComplete="name"
+                {...register("name")}
+                className={fieldInputClassName(Boolean(errors.name))}
                 placeholder="Tu nombre completo"
               />
-            </div>
+            </Field>
 
-            <div>
-              <label
-                htmlFor="email"
-                className="mb-2 block text-sm font-semibold text-slate-700"
-              >
-                Correo electrónico
-              </label>
+            <Field
+              label="Correo electrónico"
+              htmlFor="email"
+              error={errors.email?.message}
+            >
               <input
                 id="email"
                 type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                required
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                autoComplete="email"
+                {...register("email")}
+                className={fieldInputClassName(Boolean(errors.email))}
                 placeholder="tu@email.com"
               />
-            </div>
+            </Field>
 
-            <div>
-              <label
-                htmlFor="password"
-                className="mb-2 block text-sm font-semibold text-slate-700"
-              >
-                Contraseña
-              </label>
+            <Field
+              label="Contraseña"
+              htmlFor="password"
+              error={errors.password?.message}
+            >
               <input
                 id="password"
                 type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm transition focus:border-indigo-500 focus:bg-white focus:ring-4 focus:ring-indigo-100"
+                autoComplete="new-password"
+                {...register("password")}
+                className={fieldInputClassName(Boolean(errors.password))}
                 placeholder="••••••••"
               />
-            </div>
+            </Field>
 
-            {error && (
+            {serverError && (
               <p
                 role="alert"
                 className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600"
               >
-                {error}
+                {serverError}
               </p>
             )}
 
             <button
               type="submit"
-              disabled={loading}
+              disabled={isSubmitting}
               className="w-full rounded-2xl bg-slate-900 px-4 py-3.5 font-semibold text-white shadow-lg shadow-slate-900/10 transition hover:bg-indigo-600 disabled:cursor-not-allowed disabled:opacity-70"
             >
-              {loading ? "Creando cuenta..." : "Crear cuenta"}
+              {isSubmitting ? "Creando cuenta..." : "Crear cuenta"}
             </button>
           </form>
 

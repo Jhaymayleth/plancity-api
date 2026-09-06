@@ -14,6 +14,7 @@ import { EventCard } from "../components/EventCard/EventCard";
 import { Badge } from "../components/ui/Badge";
 import { Skeleton } from "../components/ui/Skeleton";
 import { useAuth } from "../context/useAuth";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import {
   useEventQuery,
   useEventsQuery,
@@ -32,6 +33,7 @@ export function EventDetailPage() {
 
   const eventQuery = useEventQuery(id);
   const event = eventQuery.data;
+  useDocumentTitle(event?.name ?? "Detalle de evento");
 
   // Relacionados: misma categoría, sin incluir el actual. Todo en cliente
   // porque la API no expone endpoint de relacionados.

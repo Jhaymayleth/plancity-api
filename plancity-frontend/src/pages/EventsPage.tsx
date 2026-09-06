@@ -10,6 +10,7 @@ import {
 } from "../components/ui";
 import { useAuth } from "../context/useAuth";
 import { useDebounce } from "../hooks/useDebounce";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import {
   useCategoriesQuery,
   useDeleteEventMutation,
@@ -29,12 +30,12 @@ export function EventsPage() {
   // El hero del home enlaza con ?search= y ?categoryId=: se usan como filtro inicial.
   const [searchParams] = useSearchParams();
 
-  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");
-  const [categoryId, setCategoryId] = useState(
+  const [search, setSearch] = useState(() => searchParams.get("search") ?? "");  const [categoryId, setCategoryId] = useState(
     () => searchParams.get("categoryId") ?? "",
   );
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  useDocumentTitle("Eventos");
 
   const debouncedSearch = useDebounce(search.trim(), 300);
 

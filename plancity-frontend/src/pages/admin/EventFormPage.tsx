@@ -11,6 +11,7 @@ import {
   useEventQuery,
   useSaveEventMutation,
 } from "../../hooks/useEventsQuery";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { eventSchema, type EventFormData } from "../../schemas/forms";
 import { getErrorMessage } from "../../utils/errors";
 import type { EventData } from "../../types/event";
@@ -22,6 +23,7 @@ export function EventFormPage() {
   const navigate = useNavigate();
 
   const isEditing = Boolean(id);
+  useDocumentTitle(isEditing ? "Editar evento" : "Nuevo evento");
   const categoriesQuery = useCategoriesQuery();
   const eventQuery = useEventQuery(id);
   const saveMutation = useSaveEventMutation();

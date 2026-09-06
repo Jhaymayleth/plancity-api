@@ -49,6 +49,23 @@ img {
   outline-offset: 2px;
 }
 
+.pc-skip-link {
+  position: absolute;
+  left: 1rem;
+  top: -100px;
+  z-index: 100;
+  border-radius: 0.75rem;
+  background: #4f46e5;
+  color: #fff;
+  padding: 0.75rem 1.25rem;
+  font-weight: 600;
+  transition: top 0.2s ease-in-out;
+}
+
+.pc-skip-link:focus {
+  top: 1rem;
+}
+
 @keyframes pc-shimmer {
   0% {
     background-position: -400px 0;

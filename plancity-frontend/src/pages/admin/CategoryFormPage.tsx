@@ -10,6 +10,7 @@ import {
   useCategoryQuery,
   useSaveCategoryMutation,
 } from "../../hooks/useEventsQuery";
+import { useDocumentTitle } from "../../hooks/useDocumentTitle";
 import { categorySchema, type CategoryFormData } from "../../schemas/forms";
 import { getErrorMessage } from "../../utils/errors";
 
@@ -18,6 +19,7 @@ export function CategoryFormPage() {
   const navigate = useNavigate();
 
   const isEditing = Boolean(id);
+  useDocumentTitle(isEditing ? "Editar categoría" : "Nueva categoría");
   const categoryQuery = useCategoryQuery(id);
   const saveMutation = useSaveCategoryMutation();
 

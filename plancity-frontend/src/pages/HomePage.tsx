@@ -16,6 +16,7 @@ import {
 import { EventCard } from "../components/EventCard/EventCard";
 import { EventCardSkeleton } from "../components/ui";
 import { useAuth } from "../context/useAuth";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import {
   useCategoriesQuery,
   useEventsQuery,
@@ -60,6 +61,7 @@ export function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [query, setQuery] = useState("");
+  useDocumentTitle("Inicio");
 
   const eventsQuery = useEventsQuery();
   const categoriesQuery = useCategoriesQuery();

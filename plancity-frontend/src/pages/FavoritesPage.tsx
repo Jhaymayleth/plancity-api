@@ -7,8 +7,10 @@ import {
   SectionHeader,
 } from "../components/ui";
 import { useFavoritesQuery } from "../hooks/useEventsQuery";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export function FavoritesPage() {
+  useDocumentTitle("Mis favoritos");
   const favoritesQuery = useFavoritesQuery(true);
   const favorites = favoritesQuery.data ?? [];
 

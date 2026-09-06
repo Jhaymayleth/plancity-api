@@ -10,6 +10,7 @@ import {
   useEventsQuery,
   useFavoritesQuery,
 } from "../hooks/useEventsQuery";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { getErrorMessage } from "../utils/errors";
 
 export function CategoryDetailPage() {
@@ -18,6 +19,7 @@ export function CategoryDetailPage() {
 
   const categoryQuery = useCategoryQuery(id);
   const category = categoryQuery.data;
+  useDocumentTitle(category?.name ?? "Detalle de categoría");
 
   // Eventos de la categoría con el filtro servidor que sí existe.
   const eventsQuery = useEventsQuery(undefined, id);

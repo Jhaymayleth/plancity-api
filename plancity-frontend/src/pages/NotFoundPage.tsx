@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 import { MapPinned } from "lucide-react";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export function NotFoundPage() {
+  useDocumentTitle("Página no encontrada");
   return (
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-100 via-indigo-50 to-violet-50 px-6 py-12">
       <div className="w-full max-w-xl rounded-[2rem] border border-slate-200 bg-white p-8 text-center shadow-[0_25px_80px_rgba(15,23,42,0.12)] sm:p-12">

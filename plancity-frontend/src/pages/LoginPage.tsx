@@ -7,6 +7,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Field } from "../components/ui/Field";
 import { fieldInputClassName } from "../components/ui/inputStyles";
 import { useAuth } from "../context/useAuth";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 import { loginSchema, type LoginFormData } from "../schemas/forms";
 import { getErrorMessage } from "../utils/errors";
 
@@ -14,6 +15,7 @@ export function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [serverError, setServerError] = useState("");
+  useDocumentTitle("Iniciar sesión");
 
   const {
     register,

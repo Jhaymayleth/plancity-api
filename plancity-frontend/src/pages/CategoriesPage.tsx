@@ -14,9 +14,11 @@ import {
   useDeleteCategoryMutation,
   useEventsQuery,
 } from "../hooks/useEventsQuery";
+import { useDocumentTitle } from "../hooks/useDocumentTitle";
 
 export function CategoriesPage() {
   const { user } = useAuth();
+  useDocumentTitle("Categorías");
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const categoriesQuery = useCategoriesQuery();

@@ -8,9 +8,10 @@ autenticación JWT con roles (`admin` / `user`).
 ```text
 entrega/
 ├── plancity-api/          # API REST NestJS 11 + TypeORM + PostgreSQL + JWT + Swagger
-│   ├── README.md          # Documentación de la API
-│   └── README.frontend.md # Documento de decisiones técnicas del frontend
+│   └── README.md          # Documentación de la API
 ├── plancity-frontend/     # SPA React 19 + TypeScript + Vite + Tailwind + Router + Axios
+│   └── README.md          # Documentación del frontend
+├── evidencias/            # Documentos Word 220501095/220501096 + diagramas + capturas + SQL
 └── GUIA PARA PRESENTAR EVIDENCIA DE PRODUCTO (1).pdf
 ```
 
@@ -55,7 +56,25 @@ npm run lint && npm test && npm run build
 
 ## Estado
 
-Fase 1 base UI aplicada en el frontend (design tokens, `components/ui`,
-`MainLayout`+`Footer`+`Toaster`, `useDebounce`, formatos COP/fecha).
-Los filtros avanzados fuera de `search`+`categoryId` se resuelven en cliente
-porque la API no los expone en servidor.
+Frontend modernizado en 5 fases (ver `plancity-frontend/README.md`):
+
+1. **Base UI**: design tokens, `components/ui` (Button, Badge, Skeleton, EmptyState,
+   ConfirmDialog...), `MainLayout`+`Footer`+`Toaster`, `useDebounce`, formatos COP/fecha.
+2. **Datos**: TanStack Query (caché 30 s), favorito optimista con toasts 409/404,
+   debounce 300 ms, skeletons, `ConfirmDialog`, detalle con compartir y relacionados.
+3. **Formularios**: RHF + Zod espejo exacto de los DTOs (login, registro, evento, categoría).
+4. **Vistas**: home con buscador funcional, categorías con conteo, navbar responsive,
+   `NotFound` en ruta `*`, filtros iniciales por `?search=` y `?categoryId=`.
+5. **Rendimiento/a11y/SEO**: lazy por ruta (inicial 337 kB), skip-link, títulos por
+   página, `lang="es"` + metadatos.
+
+Verificado: `tsc` limpio, `ESLint` limpio, **35/35 tests Vitest**, `build` ok en ambas fases.
+Los filtros fuera de `search`+`categoryId` y la paginación se resuelven en cliente
+porque la API no los expone en servidor (restricción documentada, no deuda).
+
+## Evidencias SENA (ECCL)
+
+En `evidencias/`: documentos Word diligenciados para las normas **220501095**
+(diseño, UML, prototipo, modelo BD) y **220501096** (técnico, instructivo, solución),
+con diagramas fuente (PlantUML/Mermaid) + PNG, capturas del sistema y
+`plancity-schema.sql`. Ver `evidencias/README.md`.

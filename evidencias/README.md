@@ -8,7 +8,8 @@
 | `EVIDENCIA_NORMA_220501096_Plancity.docx` | 220501096 — Desarrollar la solución (técnico, instructivo, solución) |
 
 - Datos del candidato con placeholders `[NOMBRES Y APELLIDOS]`, `[NÚMERO DE DOCUMENTO]`, `[DD/MM/AAAA]`: reemplazar antes de firmar.
-- Capturas de pantalla (`[CAPTURA N]` en el 096 §2.4): pegar con la app en ejecución.
+- Capturas del sistema en `capturas/` ya incrustadas en ambos documentos.
+- Script SQL del esquema en `plancity-schema.sql` (DDL de las 5 tablas + seed admin con hash placeholder).
 
 ## Diagramas (`diagramas/`)
 

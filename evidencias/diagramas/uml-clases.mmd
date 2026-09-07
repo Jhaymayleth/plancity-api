@@ -1,0 +1,42 @@
+classDiagram
+%% Diagrama de clases - Norma 220501095 - PlanCity
+%% Derivado de las entidades TypeORM (backend) y tipos TS (frontend)
+
+class User {
+  +string id
+  +string name
+  +string email
+  +string password
+  +UserRole role
+}
+class Category {
+  +string id
+  +string name
+  +string description
+}
+class Event {
+  +string id
+  +string name
+  +string description
+  +Date date
+  +string location
+  +number price
+  +int capacity
+  +string categoryId
+}
+class EventImage {
+  +string id
+  +string url
+  +int order
+  +string eventId
+}
+class Favorite {
+  +string id
+  +string userId
+  +string eventId
+}
+
+User "1" --> "*" Favorite : guarda
+Event "1" --> "*" Favorite : recibe
+Category "1" --> "*" Event : agrupa
+Event "1" --> "*" EventImage : muestra

@@ -1,0 +1,7 @@
+flowchart LR
+%% Arquitectura PlanCity - Normas 220501095/096
+Browser([Navegador]) --> SPA["SPA React 19 + TS<br/>Router + Query + RHF"]
+SPA --> Axios["Axios<br/>JWT interceptor"]
+Axios --> Nest["API NestJS 11<br/>Auth + Users<br/>Categories + Events<br/>Favorites"]
+Nest --> ORM["TypeORM"]
+ORM --> PG[("PostgreSQL")]

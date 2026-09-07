@@ -1,0 +1,40 @@
+@startuml Casos de uso - PlanCity
+' Diagrama de casos de uso - Norma 220501095 - PlanCity
+' Actores: Visitante < Usuario < Administrador (herencia de permisos)
+left to right direction
+
+actor Visitante as V
+actor "Usuario\nregistrado" as U
+actor Administrador as A
+
+U --|> V
+A --|> U
+
+rectangle PlanCity {
+  usecase "CU-01 Explorar eventos\n(search + categoría)" as CU01
+  usecase "CU-02 Ver detalle\nde evento" as CU02
+  usecase "CU-03 Explorar\ncategorías" as CU03
+  usecase "CU-04 Registrarse" as CU04
+  usecase "CU-05 Iniciar sesión" as CU05
+  usecase "CU-06 Gestionar\nfavoritos" as CU06
+  usecase "CU-07 Cerrar sesión" as CU07
+  usecase "CU-08 Crear evento" as CU08
+  usecase "CU-09 Editar evento" as CU09
+  usecase "CU-10 Eliminar evento" as CU10
+  usecase "CU-11 Gestionar\ncategorías" as CU11
+}
+
+V --> CU01
+V --> CU02
+V --> CU03
+V --> CU04
+V --> CU05
+U --> CU06
+U --> CU07
+CU06 ..> CU05 : <<include>>\nrequiere JWT
+A --> CU08
+A --> CU09
+A --> CU10
+A --> CU11
+CU08 ..> CU05 : <<include>>\nrequiere rol admin
+@enduml

@@ -1,0 +1,42 @@
+erDiagram
+%% Modelo entidad-relación - Norma 220501095 - PlanCity
+%% Fuente: migración InitSchema1787602695769 + entidades TypeORM
+
+users {
+  uuid id PK
+  varchar_100 name
+  varchar_150 email UK
+  varchar_255 password
+  enum role "admin|user"
+}
+categories {
+  uuid id PK
+  varchar_100 name UK
+  varchar_255 description
+}
+events {
+  uuid id PK
+  varchar_150 name UK
+  text description
+  timestamp date
+  varchar_200 location
+  numeric_10_2 price
+  int capacity
+  uuid category_id FK
+}
+event_images {
+  uuid id PK
+  varchar_500 url
+  int order
+  uuid event_id FK
+}
+favorites {
+  uuid id PK
+  uuid user_id FK
+  uuid event_id FK
+}
+
+users ||--o{ favorites : "guarda (CASCADE)"
+events ||--o{ favorites : "recibe (CASCADE)"
+categories ||--o{ events : "agrupa (RESTRICT)"
+events ||--o{ event_images : "muestra (CASCADE)"

@@ -1,0 +1,21 @@
+sequenceDiagram
+%% Diagrama de secuencia: agregar evento a favoritos - Norma 220501095
+actor U as Usuario
+participant Card as EventCard.tsx
+participant Mut as useToggleFavoriteMutation
+participant Svc as favoriteService
+participant API as POST /favorites/:eventId
+participant DB as PostgreSQL
+
+U->>Card: clic en corazón
+Card->>Mut: mutate({eventId, isFavorite=false})
+Mut->>Card: estado optimista (corazón lleno)
+Mut->>Svc: add(eventId)
+Svc->>API: POST /favorites/:id + JWT
+API->>DB: INSERT INTO favorites
+DB-->>API: 201 Created
+API-->>Svc: Favorite
+Svc-->>Mut: éxito
+Mut->>Card: toast "guardado en favoritos"
+Mut->>Card: invalida query [favorites]
+Card->>U: lista actualizada

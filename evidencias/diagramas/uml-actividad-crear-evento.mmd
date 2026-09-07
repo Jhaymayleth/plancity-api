@@ -1,0 +1,12 @@
+flowchart TD
+%% Diagrama de actividad: crear evento (admin) - Norma 220501095
+A([Admin abre /admin/events/new]) --> B[Completa formulario\nRHF + validación Zod]
+B --> C{¿Datos válidos?}
+C -->|No| B
+C -->|Sí| D[POST /events + JWT admin]
+D --> E{¿Backend valida?}
+E -->|400/409| F[Toast con mensaje del servidor]
+F --> B
+E -->|201| G[Invalida caché de eventos]
+G --> H[Navega a /events]
+H --> I([Evento visible en el listado])

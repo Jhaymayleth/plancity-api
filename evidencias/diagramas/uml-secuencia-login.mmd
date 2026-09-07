@@ -1,0 +1,20 @@
+sequenceDiagram
+%% Diagrama de secuencia: inicio de sesión - Norma 220501095
+actor V as Visitante
+participant Form as LoginPage (RHF+Zod)
+participant Ctx as AuthContext
+participant Svc as authService
+participant API as POST /auth/login
+participant DB as PostgreSQL
+
+V->>Form: diligencia correo y contraseña
+Form->>Form: valida esquema Zod<br/>(email, min 6)
+Form->>Ctx: login({email, password})
+Ctx->>Svc: POST /auth/login
+Svc->>API: credenciales
+API->>DB: SELECT user + bcrypt.compare
+DB-->>API: usuario válido
+API-->>Svc: 200 {accessToken, user}
+Svc-->>Ctx: AuthResponse
+Ctx->>Ctx: localStorage + setUser
+Ctx->>V: navega a / + toast implícito

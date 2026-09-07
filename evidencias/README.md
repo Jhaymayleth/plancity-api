@@ -16,7 +16,8 @@
 |---|---|---|
 | `uml-casos-uso.puml` (PlantUML) | `uml-casos-uso.png` | CU-01…CU-11 |
 | `uml-clases.mmd` (Mermaid) | `uml-clases.png` | Clases del dominio |
-| `uml-secuencia-favorito.mmd` | `uml-secuencia-favorito.png` | Secuencia favorito |
+| `uml-secuencia-favorito.mmd` | `uml-secuencia-favorito.png` | Secuencia agregar a favoritos |
+| `uml-secuencia-login.mmd` | `uml-secuencia-login.png` | Secuencia inicio de sesión |
 | `uml-actividad-crear-evento.mmd` | `uml-actividad-crear-evento.png` | Actividad crear evento |
 | `er-base-datos.mmd` | `er-base-datos.png` | ER (5 tablas, PK/FK) |
 | `arquitectura.mmd` | `arquitectura.png` | Capas + flujo |
